@@ -629,7 +629,29 @@ AutoFishingSection:Toggle({
                                     if not selectedTierUUID then
                                         NotifySuccess("Trade Complete", "All Tier 7 fish have been traded!")
                                         state.AutoTrade = false
-                                        state.AutoFishingToTrade = false
+                                        task.wait(1)
+                                        
+                                        -- Teleport back to Esoteric Depths
+                                        NotifyInfo("Returning to Fish", "Teleporting back to Esoteric Depths...")
+                                        local teleportSuccess = TeleportToEsotericDepths()
+                                        if not teleportSuccess then
+                                            NotifyError("Teleport Failed", "Could not teleport back to Esoteric Depths!")
+                                            state.AutoFishingToTrade = false
+                                            break
+                                        end
+                                        task.wait(2)
+                                        
+                                        -- Equip fishing tool
+                                        local equipSuccess = equipFishingToolFromHotbar(1)
+                                        if not equipSuccess then
+                                            NotifyWarning("Equipment Warning", "Could not equip tool, continuing anyway...")
+                                        end
+                                        task.wait(1)
+                                        
+                                        -- Enable auto fishing again
+                                        state.AutoFishing = true
+                                        NotifyInfo("Auto Fishing", "Auto fishing enabled. Fishing at Esoteric Depths...")
+                                        
                                         break
                                     end
                                     
@@ -637,7 +659,29 @@ AutoFishingSection:Toggle({
                                     if not targetPlayerObject then
                                         NotifyError("Player Left", "erregea_a is no longer in the game!")
                                         state.AutoTrade = false
-                                        state.AutoFishingToTrade = false
+                                        task.wait(1)
+                                        
+                                        -- Teleport back to Esoteric Depths
+                                        NotifyInfo("Returning to Fish", "Teleporting back to Esoteric Depths...")
+                                        local teleportSuccess = TeleportToEsotericDepths()
+                                        if not teleportSuccess then
+                                            NotifyError("Teleport Failed", "Could not teleport back to Esoteric Depths!")
+                                            state.AutoFishingToTrade = false
+                                            break
+                                        end
+                                        task.wait(2)
+                                        
+                                        -- Equip fishing tool
+                                        local equipSuccess = equipFishingToolFromHotbar(1)
+                                        if not equipSuccess then
+                                            NotifyWarning("Equipment Warning", "Could not equip tool, continuing anyway...")
+                                        end
+                                        task.wait(1)
+                                        
+                                        -- Enable auto fishing again
+                                        state.AutoFishing = true
+                                        NotifyInfo("Auto Fishing", "Auto fishing enabled. Fishing at Esoteric Depths...")
+                                        
                                         break
                                     end
                                     
@@ -734,6 +778,11 @@ PlayerTeleportSection:Button({
 })
 
 local TeleportSection = UtilityTab:Section({ Title = "Island Teleport", Icon = "map-pin" })
+
+local TARGET_ISLAND_DATA = { 
+    name = "Esoteric Depths", 
+    position = Vector3.new(3230.84, -1303, 1453.18) 
+}
 
 local function TeleportToTarget()
     local data = TARGET_ISLAND_DATA
