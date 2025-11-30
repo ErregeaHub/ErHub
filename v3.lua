@@ -168,6 +168,7 @@ local state = { AutoFavourite = false, AutoSell = false, AutoTrade = false, Auto
 local rodRemote = net:WaitForChild("RF/ChargeFishingRod")
 local miniGameRemote = net:WaitForChild("RF/RequestFishingMinigameStarted")
 local finishRemote = net:WaitForChild("RE/FishingCompleted")
+local equipToolRemote = net:WaitForChild("RE/EquipToolFromHotbar")
 
 local Player = Players.LocalPlayer
 local XPBar = Player:WaitForChild("PlayerGui"):WaitForChild("XP")
@@ -421,6 +422,40 @@ local function hasTier7Fish()
     return false
 end
 
+local TARGET_ISLAND_DATA = { 
+    name = "Esoteric Depths", 
+    position = Vector3.new(3230.84, -1303, 1453.18) 
+}
+
+local function equipFishingToolFromHotbar(slotNumber)
+    slotNumber = slotNumber or 1
+    
+    local success, result = pcall(equipToolRemote.FireServer, equipToolRemote, slotNumber)
+    
+    if success then
+        NotifySuccess("Tool Equipped", "Fishing rod equipped from hotbar slot " .. slotNumber .. "!")
+        return true
+    else
+        NotifyError("Equip Failed", "Failed to equip tool: " .. tostring(result))
+        return false
+    end
+end
+
+local function TeleportToEsotericDepths()
+    local data = TARGET_ISLAND_DATA
+    local char = Players.LocalPlayer.Character
+    
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local targetCFrame = CFrame.new(data.position + Vector3.new(0, 5, 0))
+        char.HumanoidRootPart.CFrame = targetCFrame
+        NotifySuccess("Teleport Berhasil", "Teleported to Esoteric Depths")
+        return true
+    else
+        NotifyError("Teleport Gagal", "Character not found or not loaded!")
+        return false
+    end
+end
+
 GiveSection:Dropdown({
     Title = "Pilih Player",
     Values = getPlayers(),
@@ -547,7 +582,7 @@ AutoFishingSection:Toggle({
         state.AutoFishingToTrade = value
 
         if value then
-            NotifyInfo("Auto Fish to Trade", "Monitoring backpack para Tier 7 fish...")
+            NotifyInfo("Auto Fish to Trade", "Monitoring backpack for Tier 7 fish...")
 
             task.spawn(function()
                 while state.AutoFishingToTrade do
@@ -626,6 +661,31 @@ AutoFishingSection:Toggle({
                         end
 
                         break
+                    else
+                        -- Step: Tier 7 NOT detected, prepare for fishing
+                        NotifyInfo("No Tier 7 Found", "Tier 7 fish not detected. Preparing to fish...")
+                        
+                        -- Teleport to Esoteric Depths
+                        local teleportSuccess = TeleportToEsotericDepths()
+                        if not teleportSuccess then
+                            state.AutoFishingToTrade = false
+                            break
+                        end
+                        task.wait(2)
+                        
+                        -- Equip fishing tool from hotbar (slot 1)
+                        local equipSuccess = equipFishingToolFromHotbar(1)
+                        if not equipSuccess then
+                            NotifyWarning("Equipment Warning", "Could not equip tool, continuing anyway...")
+                        end
+                        task.wait(1)
+                        
+                        -- Enable auto fishing
+                        state.AutoFishing = true
+                        NotifyInfo("Auto Fishing", "Auto fishing enabled. Fishing at Esoteric Depths...")
+                        
+                        -- Continue monitoring for Tier 7
+                        task.wait(2)
                     end
 
                     task.wait(2)
@@ -637,6 +697,7 @@ AutoFishingSection:Toggle({
             end)
         else
             state.AutoFishingToTrade = false
+            state.AutoFishing = false
             NotifyInfo("Auto Fish to Trade", "Monitoring disabled.")
         end
     end
@@ -673,11 +734,6 @@ PlayerTeleportSection:Button({
 })
 
 local TeleportSection = UtilityTab:Section({ Title = "Island Teleport", Icon = "map-pin" })
-
-local TARGET_ISLAND_DATA = { 
-    name = "Esoteric Depths", 
-    position = Vector3.new(3230.84, -1303, 1453.18) 
-}
 
 local function TeleportToTarget()
     local data = TARGET_ISLAND_DATA
