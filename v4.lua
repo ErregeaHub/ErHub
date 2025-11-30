@@ -117,6 +117,17 @@ local function TeleportToPlayer(playerName)
     NotifySuccess("Teleport Berhasil", "Berhasil pindah ke lokasi " .. playerName .. ".")
 end
 
+local function respawnPlayer()
+    local char = Players.LocalPlayer.Character
+    if char and char:FindFirstChild("Humanoid") then
+        char.Humanoid.Health = 0
+        NotifyWarning("Respawn", "Player respawned due to backpack stuck!")
+        task.wait(3)
+        return true
+    end
+    return false
+end
+
 local function initializeDataModules()
     local packages = ReplicatedStorage:WaitForChild("Packages", 10)
     local shared = ReplicatedStorage:WaitForChild("Shared", 10)
@@ -424,7 +435,7 @@ local function hasTier7Fish()
         if item.Id then
             local base = ItemUtility:GetItemData(item.Id)
             
-            if base and base.Data and base.Data.Type == "Fish" and base.Data.Tier == 4 then
+            if base and base.Data and base.Data.Type == "Fish" and base.Data.Tier == 7 then
                 return true
             end
         end
@@ -639,59 +650,56 @@ local autoFishingToggle = AutoFishingSection:Toggle({
         state.AutoFishingToTrade = value
 
         if value then
-            statusInfo.isRunning = true
-            statusInfo.currentStatus = "Monitoring"
             NotifyInfo("Auto Fish to Trade", "Monitoring backpack for Tier 7 fish...")
 
             task.spawn(function()
+                local lastItemCount = 0
+                
                 while state.AutoFishingToTrade do
-                    -- Auto-refresh backpack every 10 seconds
                     local success = initializeDataModules()
                     if success then
-                        statusInfo.lastRefresh = os.time()
-                        NotifyInfo("Backpack", "Backpack refreshed")
+                        -- Get current item count to detect stuck backpack
+                        local inventoryData = SafeGet(DataReplion, "Inventory")
+                        local items = nil
+                        if inventoryData and type(inventoryData) == "table" then items = inventoryData.Items end
+                        if not items then items = SafeGet(DataReplion, "Items") end
                         
-                        -- Immediately check for Tier 7 after refresh
+                        local currentItemCount = items and #items or 0
+                        
+                        -- Check if backpack is stuck (item count not changing)
+                        if currentItemCount == lastItemCount and lastItemCount > 0 then
+                            respawnPlayer()
+                            task.wait(4)
+                            TeleportToEsotericDepths()
+                            task.wait(2)
+                            lastItemCount = 0
+                        else
+                            lastItemCount = currentItemCount
+                        end
+                        
+                        -- Check for Tier 7 after refresh
                         if hasTier7Fish() then
-                            statusInfo.tier7Count = statusInfo.tier7Count + 1
-                            NotifyInfo("Tier 7 Detected!", "Found Secret/Tier 7 fish! Starting automation...")
-                            
-                            -- Disable auto fishing
                             state.AutoFishing = false
                             autoFishingToggle:SetValue(false)
-                            NotifyInfo("Auto Fishing", "Auto fishing disabled before trade.")
-                            statusInfo.currentStatus = "Trading"
-                            task.wait(1)
+                            NotifyInfo("Tier 7 Found", "Starting trade...")
+                            task.wait(0.5)
 
                             -- Teleport to erregea_a
                             local targetPlayer = Players:FindFirstChild("erregea_a")
                             if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
                                 TeleportToPlayer("erregea_a")
-                                NotifySuccess("Teleported", "Moved to erregea_a location.")
                                 task.wait(2)
                             else
-                                NotifyWarning("Player Not Found", "erregea_a is not in the game or not loaded.")
+                                NotifyError("Error", "erregea_a not in game")
                                 state.AutoFishingToTrade = false
                                 break
                             end
 
-                            -- Stay at erregea_a for 5 seconds
-                            NotifyInfo("Waiting", "Staying at erregea_a for 5 seconds...")
                             task.wait(5)
-
-                            -- Auto-select erregea_a as trade target
                             selectedPlayer = "erregea_a"
-                            NotifyInfo("Player Selected", "erregea_a has been selected for trade.")
-                            task.wait(1)
-
-                            -- Set tier to 7 (Secret)
                             selectedTierValue = 7
-                            NotifyInfo("Tier Selected", "Tier 7 (Secret) selected for trade.")
-                            task.wait(1)
 
-                            -- Start auto trade
                             if Remote_InitiateTrade then
-                                NotifyInfo("Starting Auto Trade", "Beginning Tier 7 trade to erregea_a...")
                                 state.AutoTrade = true
                                 local tradeCompleted = false
 
@@ -700,8 +708,6 @@ local autoFishingToggle = AutoFishingSection:Toggle({
                                         local selectedTierUUID, fishName, selectedItemId = findUUIDByTier(7)
                                         
                                         if not selectedTierUUID then
-                                            NotifySuccess("Trade Complete", "All Tier 7 fish have been traded!")
-                                            statusInfo.tradeCount = statusInfo.tradeCount + 1
                                             state.AutoTrade = false
                                             tradeCompleted = true
                                             break
@@ -709,23 +715,18 @@ local autoFishingToggle = AutoFishingSection:Toggle({
                                         
                                         local targetPlayerObject = Players:FindFirstChild("erregea_a")
                                         if not targetPlayerObject then
-                                            NotifyError("Player Left", "erregea_a is no longer in the game!")
                                             state.AutoTrade = false
                                             tradeCompleted = true
                                             break
                                         end
                                         
                                         local targetUserId = targetPlayerObject.UserId
-                                        NotifyInfo("Trading", string.format("Sending 1x %s to erregea_a...", fishName or "Tier 7 Fish"))
-
                                         local s1, r1 = pcall(Remote_InitiateTrade.InvokeServer, Remote_InitiateTrade, targetUserId, selectedTierUUID)
                                         
                                         if not s1 then
-                                            NotifyError("Trade Failed", "Retrying in 10 seconds...")
-                                            task.wait(10)
+                                            task.wait(5)
                                         else
-                                            NotifySuccess("Trade Success", "Fish sent successfully!")
-                                            task.wait(2)
+                                            task.wait(1)
                                         end
                                     end
                                 end)
@@ -735,53 +736,31 @@ local autoFishingToggle = AutoFishingSection:Toggle({
                                     task.wait(1)
                                 end
                                 
-                                -- After trade completes, teleport back to Esoteric Depths
                                 if tradeCompleted and state.AutoFishingToTrade then
-                                    task.wait(1)
-                                    NotifyInfo("Returning to Fish", "Teleporting back to Esoteric Depths...")
                                     local teleportSuccess = TeleportToEsotericDepths()
                                     if not teleportSuccess then
-                                        NotifyError("Teleport Failed", "Could not teleport back to Esoteric Depths!")
                                         state.AutoFishingToTrade = false
                                     else
-                                        task.wait(2)
-                                        
-                                        -- Equip fishing tool
-                                        local equipSuccess = equipFishingToolFromHotbar(1)
-                                        if not equipSuccess then
-                                            NotifyWarning("Equipment Warning", "Could not equip tool, continuing anyway...")
-                                        end
                                         task.wait(1)
-                                        
-                                        -- Enable auto fishing again
+                                        equipFishingToolFromHotbar(1)
+                                        task.wait(0.5)
                                         state.AutoFishing = true
                                         autoFishingToggle:SetValue(true)
-                                        NotifyInfo("Auto Fishing", "Auto fishing enabled and restarting...")
                                     end
                                 end
                             else
                                 NotifyError("Remote Error", "InitiateTrade remote not loaded!")
                                 state.AutoFishingToTrade = false
                             end
-                        else
-                            -- No Tier 7 found, continue fishing
-                            NotifyInfo("Monitoring", "No Tier 7 found, continuing to fish...")
                         end
                     end
                     
-                    task.wait(20000)
-                end
-
-                if not state.AutoFishingToTrade then
-                    NotifyInfo("Auto Fish to Trade", "Monitoring stopped.")
+                    task.wait(120)
                 end
             end)
         else
             state.AutoFishingToTrade = false
             state.AutoFishing = false
-            statusInfo.isRunning = false
-            statusInfo.currentStatus = "Idle"
-            NotifyInfo("Full Auto", "Disabled")
         end
     end
 })
