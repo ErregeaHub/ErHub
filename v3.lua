@@ -584,6 +584,19 @@ AutoFishingSection:Toggle({
         if value then
             NotifyInfo("Auto Fish to Trade", "Monitoring backpack for Tier 7 fish...")
 
+            -- Start auto-refresh backpack loop
+            task.spawn(function()
+                while state.AutoFishingToTrade do
+                    task.wait(10)
+                    if state.AutoFishingToTrade then
+                        local success = initializeDataModules()
+                        if success then
+                            NotifyInfo("Backpack", "Backpack refreshed")
+                        end
+                    end
+                end
+            end)
+
             task.spawn(function()
                 while state.AutoFishingToTrade do
                     -- Check if we have Tier 7 fish
