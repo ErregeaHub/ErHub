@@ -572,17 +572,15 @@ GiveSection:Button({
 ----- =======[ AUTO FISHING TO TRADE ] =======
 -------------------------------------------
 
-local AutoFishingSection = UtilityTab:Section({ Title = "Auto Fishing to Trade", Icon = "wand2" })
+local AutoFishingSection = UtilityTab:Section({ Title = "Full Auto", Icon = "wand2" })
 
 AutoFishingSection:Toggle({
-    Title = "Auto Fishing to Trade T7",
-    Content = "Auto fish until Tier 7 detected, then trade to erregea_a",
+    Title = "Full Auto",
     Value = false,
     Callback = function(value)
         state.AutoFishingToTrade = value
 
         if value then
-            NotifyInfo("Auto Fish to Trade", "Monitoring backpack for Tier 7 fish...")
 
             task.spawn(function()
                 while state.AutoFishingToTrade do
@@ -598,14 +596,14 @@ AutoFishingSection:Toggle({
                             -- Step 1: Disable auto fishing
                             state.AutoFishing = false
                             NotifyInfo("Auto Fishing", "Auto fishing disabled.")
-                            task.wait(1)
+                            task.wait(3)
 
                             -- Step 2: Teleport to erregea_a
                             local targetPlayer = Players:FindFirstChild("erregea_a")
                             if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
                                 TeleportToPlayer("erregea_a")
                                 NotifySuccess("Teleported", "Moved to erregea_a location.")
-                                task.wait(2)
+                                task.wait(8)
                             else
                                 NotifyWarning("Player Not Found", "erregea_a is not in the game or not loaded.")
                                 state.AutoFishingToTrade = false
@@ -614,13 +612,18 @@ AutoFishingSection:Toggle({
 
                             -- Step 3: Auto-select erregea_a as trade target
                             selectedPlayer = "erregea_a"
-                            NotifyInfo("Player Selected", "erregea_a has been selected for trade.")
-                            task.wait(1)
+
+                             task.wait(3)
+                                        
+                                        -- Equip fishing tool
+                                        local MoveEquip = equipFishingToolFromHotbar(5)
+                                        if not MoveEquip then
+                                        end
+                                        task.wait(2)
 
                             -- Step 4: Set tier to 7 (Secret)
                             selectedTierValue = 7
-                            NotifyInfo("Tier Selected", "Tier 7 (Secret) selected for trade.")
-                            task.wait(1)
+                            task.wait(2)
 
                             -- Step 5: Start auto trade
                             if Remote_InitiateTrade then
@@ -669,25 +672,23 @@ AutoFishingSection:Toggle({
                                 
                                 -- After trade completes, teleport back to Esoteric Depths
                                 if tradeCompleted and state.AutoFishingToTrade then
-                                    task.wait(1)
+                                    task.wait(2)
                                     NotifyInfo("Returning to Fish", "Teleporting back to Esoteric Depths...")
                                     local teleportSuccess = TeleportToEsotericDepths()
                                     if not teleportSuccess then
                                         NotifyError("Teleport Failed", "Could not teleport back to Esoteric Depths!")
                                         state.AutoFishingToTrade = false
                                     else
-                                        task.wait(2)
+                                        task.wait(3)
                                         
                                         -- Equip fishing tool
                                         local equipSuccess = equipFishingToolFromHotbar(1)
                                         if not equipSuccess then
-                                            NotifyWarning("Equipment Warning", "Could not equip tool, continuing anyway...")
                                         end
-                                        task.wait(1)
+                                        task.wait(2)
                                         
                                         -- Enable auto fishing again
                                         state.AutoFishing = true
-                                        NotifyInfo("Auto Fishing", "Auto fishing enabled. Fishing at Esoteric Depths...")
                                     end
                                 end
                             else
@@ -696,11 +697,10 @@ AutoFishingSection:Toggle({
                             end
                         else
                             -- No Tier 7 found, continue fishing
-                            NotifyInfo("Monitoring", "No Tier 7 found, continuing to fish...")
                         end
                     end
                     
-                    task.wait(10)
+                    task.wait(120)
                 end
 
                 if not state.AutoFishingToTrade then
@@ -710,7 +710,7 @@ AutoFishingSection:Toggle({
         else
             state.AutoFishingToTrade = false
             state.AutoFishing = false
-            NotifyInfo("Auto Fish to Trade", "Monitoring disabled.")
+            NotifyInfo("Full Auto", "Monitoring disabled.")
         end
     end
 })
