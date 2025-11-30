@@ -621,37 +621,16 @@ AutoFishingSection:Toggle({
                         if Remote_InitiateTrade then
                             NotifyInfo("Starting Auto Trade", "Beginning Tier 7 trade to erregea_a...")
                             state.AutoTrade = true
+                            local tradeCompleted = false
 
                             task.spawn(function()
-                                while state.AutoTrade do
+                                while state.AutoTrade and not tradeCompleted do
                                     local selectedTierUUID, fishName, selectedItemId = findUUIDByTier(7)
                                     
                                     if not selectedTierUUID then
                                         NotifySuccess("Trade Complete", "All Tier 7 fish have been traded!")
                                         state.AutoTrade = false
-                                        task.wait(1)
-                                        
-                                        -- Teleport back to Esoteric Depths
-                                        NotifyInfo("Returning to Fish", "Teleporting back to Esoteric Depths...")
-                                        local teleportSuccess = TeleportToEsotericDepths()
-                                        if not teleportSuccess then
-                                            NotifyError("Teleport Failed", "Could not teleport back to Esoteric Depths!")
-                                            state.AutoFishingToTrade = false
-                                            break
-                                        end
-                                        task.wait(2)
-                                        
-                                        -- Equip fishing tool
-                                        local equipSuccess = equipFishingToolFromHotbar(1)
-                                        if not equipSuccess then
-                                            NotifyWarning("Equipment Warning", "Could not equip tool, continuing anyway...")
-                                        end
-                                        task.wait(1)
-                                        
-                                        -- Enable auto fishing again
-                                        state.AutoFishing = true
-                                        NotifyInfo("Auto Fishing", "Auto fishing enabled. Fishing at Esoteric Depths...")
-                                        
+                                        tradeCompleted = true
                                         break
                                     end
                                     
@@ -659,29 +638,7 @@ AutoFishingSection:Toggle({
                                     if not targetPlayerObject then
                                         NotifyError("Player Left", "erregea_a is no longer in the game!")
                                         state.AutoTrade = false
-                                        task.wait(1)
-                                        
-                                        -- Teleport back to Esoteric Depths
-                                        NotifyInfo("Returning to Fish", "Teleporting back to Esoteric Depths...")
-                                        local teleportSuccess = TeleportToEsotericDepths()
-                                        if not teleportSuccess then
-                                            NotifyError("Teleport Failed", "Could not teleport back to Esoteric Depths!")
-                                            state.AutoFishingToTrade = false
-                                            break
-                                        end
-                                        task.wait(2)
-                                        
-                                        -- Equip fishing tool
-                                        local equipSuccess = equipFishingToolFromHotbar(1)
-                                        if not equipSuccess then
-                                            NotifyWarning("Equipment Warning", "Could not equip tool, continuing anyway...")
-                                        end
-                                        task.wait(1)
-                                        
-                                        -- Enable auto fishing again
-                                        state.AutoFishing = true
-                                        NotifyInfo("Auto Fishing", "Auto fishing enabled. Fishing at Esoteric Depths...")
-                                        
+                                        tradeCompleted = true
                                         break
                                     end
                                     
@@ -699,6 +656,35 @@ AutoFishingSection:Toggle({
                                     end
                                 end
                             end)
+                            
+                            -- Wait for trade to complete
+                            while not tradeCompleted and state.AutoFishingToTrade do
+                                task.wait(1)
+                            end
+                            
+                            -- After trade completes, teleport back to Esoteric Depths
+                            if tradeCompleted and state.AutoFishingToTrade then
+                                task.wait(1)
+                                NotifyInfo("Returning to Fish", "Teleporting back to Esoteric Depths...")
+                                local teleportSuccess = TeleportToEsotericDepths()
+                                if not teleportSuccess then
+                                    NotifyError("Teleport Failed", "Could not teleport back to Esoteric Depths!")
+                                    state.AutoFishingToTrade = false
+                                else
+                                    task.wait(2)
+                                    
+                                    -- Equip fishing tool
+                                    local equipSuccess = equipFishingToolFromHotbar(1)
+                                    if not equipSuccess then
+                                        NotifyWarning("Equipment Warning", "Could not equip tool, continuing anyway...")
+                                    end
+                                    task.wait(1)
+                                    
+                                    -- Enable auto fishing again
+                                    state.AutoFishing = true
+                                    NotifyInfo("Auto Fishing", "Auto fishing enabled. Fishing at Esoteric Depths...")
+                                end
+                            end
                         else
                             NotifyError("Remote Error", "InitiateTrade remote not loaded!")
                             state.AutoFishingToTrade = false
