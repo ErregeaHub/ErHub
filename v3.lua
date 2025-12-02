@@ -423,8 +423,8 @@ local function hasTier7Fish()
 end
 
 local TARGET_ISLAND_DATA = { 
-    name = "Esoteric Depths", 
-    position = Vector3.new(-1532.43017578125 2.874999761581421 1913.945312) 
+    name = "Weather Machine ", 
+    -- position = Vector3.new(-1518.46802, 7.875, 1913.32983,  -0.45599404, -0.00000005, -0.88998282, -0.00000002, 1.00000000, -0.00000004, 0.88998282, -0.00000001, -0.45599404) 
 }
 
 local function equipFishingToolFromHotbar(slotNumber)
@@ -446,9 +446,9 @@ local function TeleportToEsotericDepths()
     local char = Players.LocalPlayer.Character
     
     if char and char:FindFirstChild("HumanoidRootPart") then
-        local targetCFrame = CFrame.new(data.position + Vector3.new(0, 5, 0))
+        local targetCFrame = CFrame.new(-1518.46802, 3, 1913.32983, -0.993969142, -5.26938604e-10, -0.109660149, -5.09104425e-10, 1, -1.90630081e-10, 0.109660149, -1.33651951e-10, -0.993969142)
         char.HumanoidRootPart.CFrame = targetCFrame
-        NotifySuccess("Teleport Berhasil", "Teleported to Esoteric Depths")
+        NotifySuccess("Teleport Berhasil", "Teleported to Weather")
         return true
     else
         NotifyError("Teleport Gagal", "Character not found or not loaded!")
@@ -587,7 +587,6 @@ AutoFishingSection:Toggle({
                     -- Auto-refresh backpack every 10 seconds
                     local success = initializeDataModules()
                     if success then
-                        NotifyInfo("Backpack", "Backpack refreshed")
                         
                         -- Immediately check for Tier 7 after refresh
                         if hasTier7Fish() then
@@ -673,10 +672,10 @@ AutoFishingSection:Toggle({
                                 -- After trade completes, teleport back to Esoteric Depths
                                 if tradeCompleted and state.AutoFishingToTrade then
                                     task.wait(2)
-                                    NotifyInfo("Returning to Fish", "Teleporting back to Esoteric Depths...")
+                                    NotifyInfo("Returning to Fish", "Teleporting back to Weather...")
                                     local teleportSuccess = TeleportToEsotericDepths()
                                     if not teleportSuccess then
-                                        NotifyError("Teleport Failed", "Could not teleport back to Esoteric Depths!")
+                                        NotifyError("Teleport Failed", "Could not teleport back to Weather!")
                                         state.AutoFishingToTrade = false
                                     else
                                         task.wait(3)
@@ -748,16 +747,16 @@ PlayerTeleportSection:Button({
 local TeleportSection = UtilityTab:Section({ Title = "Island Teleport", Icon = "map-pin" })
 
 local TARGET_ISLAND_DATA = { 
-    name = "Esoteric Depths", 
-    position = Vector3.new(-1532.43017578125 2.874999761581421 1913.945312) 
+    name = "Weather", 
+    -- position = Vector3.new(-1518.46802, 7.875, 1913.32983,  -0.45599404, -0.00000005, -0.88998282, -0.00000002, 1.00000000, -0.00000004, 0.88998282, -0.00000001, -0.45599404) 
 }
 
 local function TeleportToTarget()
-    local data = TARGET_ISLAND_DATA
+    
     local char = Players.LocalPlayer.Character
     
     if char and char:FindFirstChild("HumanoidRootPart") then
-        local targetCFrame = CFrame.new(data.position + Vector3.new(0, 5, 0))
+        local targetCFrame = CFrame.new(-1518.46802, 3, 1913.32983, -0.993969142, -5.26938604e-10, -0.109660149, -5.09104425e-10, 1, -1.90630081e-10, 0.109660149, -1.33651951e-10, -0.993969142)
         char.HumanoidRootPart.CFrame = targetCFrame
         NotifySuccess("Teleport Berhasil", "Berhasil teleport  ke " .. data.name)
         return true
@@ -768,14 +767,14 @@ local function TeleportToTarget()
 end
 
 TeleportSection:Toggle({
-    Title = "Teleport: Esoteric Depths",
-    Content = "Klik untuk teleport instan ke pulau Esoteric Depths.",
+    Title = "Teleport: Weather",
+    Content = "Klik untuk teleport instan ke pulau Weather.",
     Value = false,
     Callback = function(value)
         if value then
             local success = TeleportToTarget()
             
-            TeleportSection:UpdateToggle("Teleport: Esoteric Depths", false)
+            TeleportSection:UpdateToggle("Teleport: Weather", false)
         end
     end
 })
