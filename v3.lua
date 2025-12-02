@@ -424,7 +424,7 @@ end
 
 local TARGET_ISLAND_DATA = { 
     name = "Esoteric Depths", 
-    position = Vector3.new(3230.84, -1303, 1453.18) 
+    position = Vector3.new(-1532.43017578125 2.874999761581421 1913.945312) 
 }
 
 local function equipFishingToolFromHotbar(slotNumber)
@@ -749,7 +749,7 @@ local TeleportSection = UtilityTab:Section({ Title = "Island Teleport", Icon = "
 
 local TARGET_ISLAND_DATA = { 
     name = "Esoteric Depths", 
-    position = Vector3.new(3230.84, -1303, 1453.18) 
+    position = Vector3.new(-1532.43017578125 2.874999761581421 1913.945312) 
 }
 
 local function TeleportToTarget()
