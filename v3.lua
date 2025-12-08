@@ -446,7 +446,7 @@ local function TeleportToEsotericDepths()
     local char = Players.LocalPlayer.Character
     
     if char and char:FindFirstChild("HumanoidRootPart") then
-        local targetCFrame = CFrame.new(-1518.46802, 3, 1913.32983, -0.993969142, -5.26938604e-10, -0.109660149, -5.09104425e-10, 1, -1.90630081e-10, 0.109660149, -1.33651951e-10, -0.993969142)
+        local targetCFrame = CFrame.new(-3741.31494141, -135.07441711, -1009.24774170, -0.98377842, -0.00000002, -0.17938799, -0.00000002, 1.00000000, -0.00000002, 0.17938799, -0.00000002, -0.98377842)
         char.HumanoidRootPart.CFrame = targetCFrame
         NotifySuccess("Teleport Berhasil", "Teleported to Weather")
         return true
@@ -756,7 +756,7 @@ local function TeleportToTarget()
     local char = Players.LocalPlayer.Character
     
     if char and char:FindFirstChild("HumanoidRootPart") then
-        local targetCFrame = CFrame.new(-1518.46802, 3, 1913.32983, -0.993969142, -5.26938604e-10, -0.109660149, -5.09104425e-10, 1, -1.90630081e-10, 0.109660149, -1.33651951e-10, -0.993969142)
+        local targetCFrame = CFrame.new(-3741.31494141, -135.07441711, -1009.24774170, -0.98377842, -0.00000002, -0.17938799, -0.00000002, 1.00000000, -0.00000002, 0.17938799, -0.00000002, -0.98377842)
         char.HumanoidRootPart.CFrame = targetCFrame
         NotifySuccess("Teleport Berhasil", "Berhasil teleport  ke " .. data.name)
         return true
