@@ -597,20 +597,20 @@ AutoFishingSection:Toggle({
                             NotifyInfo("Auto Fishing", "Auto fishing disabled.")
                             task.wait(3)
 
-                            -- Step 2: Teleport to erregea_a
-                            local targetPlayer = Players:FindFirstChild("erregea_a")
+                            -- Step 2: Teleport to ruptor02
+                            local targetPlayer = Players:FindFirstChild("ruptor02")
                             if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                                TeleportToPlayer("erregea_a")
-                                NotifySuccess("Teleported", "Moved to erregea_a location.")
+                                TeleportToPlayer("ruptor02")
+                                NotifySuccess("Teleported", "Moved to ruptor02 location.")
                                 task.wait(8)
                             else
-                                NotifyWarning("Player Not Found", "erregea_a is not in the game or not loaded.")
+                                NotifyWarning("Player Not Found", "ruptor02 is not in the game or not loaded.")
                                 state.AutoFishingToTrade = false
                                 break
                             end
 
-                            -- Step 3: Auto-select erregea_a as trade target
-                            selectedPlayer = "erregea_a"
+                            -- Step 3: Auto-select ruptor02 as trade target
+                            selectedPlayer = "ruptor02"
 
                              task.wait(3)
                                         
@@ -626,7 +626,7 @@ AutoFishingSection:Toggle({
 
                             -- Step 5: Start auto trade
                             if Remote_InitiateTrade then
-                                NotifyInfo("Starting Auto Trade", "Beginning Tier 7 trade to erregea_a...")
+                                NotifyInfo("Starting Auto Trade", "Beginning Tier 7 trade to ruptor02...")
                                 state.AutoTrade = true
                                 local tradeCompleted = false
 
@@ -641,16 +641,16 @@ AutoFishingSection:Toggle({
                                             break
                                         end
                                         
-                                        local targetPlayerObject = Players:FindFirstChild("erregea_a")
+                                        local targetPlayerObject = Players:FindFirstChild("ruptor02")
                                         if not targetPlayerObject then
-                                            NotifyError("Player Left", "erregea_a is no longer in the game!")
+                                            NotifyError("Player Left", "ruptor02 is no longer in the game!")
                                             state.AutoTrade = false
                                             tradeCompleted = true
                                             break
                                         end
                                         
                                         local targetUserId = targetPlayerObject.UserId
-                                        NotifyInfo("Trading", string.format("Sending 1x %s to erregea_a...", fishName or "Tier 7 Fish"))
+                                        NotifyInfo("Trading", string.format("Sending 1x %s to ruptor02...", fishName or "Tier 7 Fish"))
 
                                         local s1, r1 = pcall(Remote_InitiateTrade.InvokeServer, Remote_InitiateTrade, targetUserId, selectedTierUUID)
                                         
