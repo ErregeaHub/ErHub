@@ -1,4 +1,45 @@
 
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local LocalPlayer = Players.LocalPlayer
+
+    local state = { 
+        AutoSell = false, 
+        InstantFishing = false,
+        WebhookEnabled = false,
+        WebhookURL = "",
+        WebhookTiers = {
+            ["1"] = true,
+            ["2"] = true,
+            ["3"] = true,
+            ["4"] = true,
+            ["5"] = true,
+            ["6"] = true,
+            ["7"] = true,
+        },
+        -- Support Features
+        NoFishingAnimation = false,
+        ShowPing = false,
+        LockPosition = false,
+        DisableSkinEffect = false,
+        DisableEffect = false,
+        DisableFishingEffect = false,
+        -- Booster FPS
+        ReduceMap = false,
+        -- Server Features
+        AutoReconnect = true,
+        AntiAfk = false,
+        -- Fishing Support
+        AutoEquipRod = false,
+        WalkOnWater = false,
+        DisableCutscene = false,
+        -- Lighting & Movement
+        Fullbright = false,
+        WalkSpeed = 16,
+        JumpPower = 50,
+    }
+
     -------------------------------------------
     ----- =======[ Load WindUI ] =======
     -------------------------------------------
@@ -8,11 +49,6 @@
     -------------------------------------------
     ----- =======[ GLOBAL FUNCTION ] =======
     -------------------------------------------
-
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local Players = game:GetService("Players")
-    local RunService = game:GetService("RunService")
-    local LocalPlayer = Players.LocalPlayer
 
     local Replion
     local ItemUtility
@@ -60,6 +96,248 @@
             Duration = 1,
             Icon = "info"
         })
+    end
+
+    local knownUUIDs = {}
+
+    -- Webhook State & Cache
+    local lastSentFish = {name = "", tier = "", time = 0}
+
+    local function SendWebhook(fishName, tier)
+        if not state.WebhookEnabled or state.WebhookURL == "" then return false end
+        
+        -- Duplicate check (avoid UI and Inventory monitors triggering at the same time)
+        local currentTime = tick()
+        if lastSentFish.name == fishName and lastSentFish.tier == tostring(tier) and (currentTime - lastSentFish.time) < 3 then
+            return true -- Counted as success if it's a duplicate
+        end
+        lastSentFish = {name = fishName, tier = tostring(tier), time = currentTime}
+
+        -- Filter out common non-fish notifications
+        local lowerName = fishName:lower()
+        local filters = {"inventory full", "level up", "quest complete", "new area", "achievement"}
+        for _, filter in pairs(filters) do
+            if lowerName:find(filter) then return false end
+        end
+
+        -- Check if tier is enabled
+        local tierStr = tostring(tier)
+        if not state.WebhookTiers[tierStr] then return false end
+        
+        -- Robust Discord proxy handling
+        local originalUrl = state.WebhookURL
+        local urlsToTry = {}
+        
+        -- Generate proxy list
+        if originalUrl:find("discord.com") or originalUrl:find("discordapp.com") then
+            table.insert(urlsToTry, (originalUrl:gsub("discord.com", "webhook.lewisakura.moe"):gsub("discordapp.com", "webhook.lewisakura.moe")))
+            table.insert(urlsToTry, originalUrl) -- Try original last
+        else
+            table.insert(urlsToTry, originalUrl)
+        end
+        
+        local tierNames = {
+            ["1"] = "Common",
+            ["2"] = "Uncommon",
+            ["3"] = "Rare",
+            ["4"] = "Epic",
+            ["5"] = "Legendary",
+            ["6"] = "Mythic",
+            ["7"] = "Secret",
+        }
+
+        local tierColors = {
+            ["1"] = 0x808080, -- Common
+            ["2"] = 0x00ff00, -- Uncommon
+            ["3"] = 0x0000ff, -- Rare
+            ["4"] = 0xa335ee, -- Epic
+            ["5"] = 0xff8000, -- Legendary
+            ["6"] = 0xff0000, -- Mythic
+            ["7"] = 0xffff00, -- Secret
+        }
+
+        local data = {
+            ["username"] = "ErHub Notification!",
+            ["avatar_url"] = "https://i.imgur.com/V1gmBJQ.png",
+            ["embeds"] = {{
+                ["title"] = "ErHub Webhook | Fish Caught",
+                ["description"] = "Congratulations! You just caught a **" .. fishName .. "**!",
+                ["color"] = tierColors[tierStr] or 0x00ff00,
+                ["fields"] = {
+                    {["name"] = "**〢 Rarity :**", ["value"] = "```" .. (tierNames[tierStr] or "Unknown") .. "```", ["inline"] = true},
+                    {["name"] = "**〢 Player :**", ["value"] = "```" .. LocalPlayer.Name .. "```", ["inline"] = true}
+                },
+                ["image"] = {["url"] = "https://i.imgur.com/HeWixh1.gif"},
+                ["footer"] = {
+                    ["text"] = "ErHub • " .. os.date("%X"),
+                    ["icon_url"] = "https://i.imgur.com/V1gmBJQ.png"
+                },
+                ["timestamp"] = os.date("!%Y-%m-%dT%H:%M:%SZ")
+            }}
+        }
+        
+        -- Try all URLs
+        local lastError = nil
+        for _, tryUrl in ipairs(urlsToTry) do
+            local success, result = pcall(function()
+                local json = game:GetService("HttpService"):JSONEncode(data)
+                local request = (syn and syn.request) or (http and http.request) or http_request or (Fluxus and Fluxus.request) or request
+                
+                if request then
+                    local response = request({
+                        Url = tryUrl,
+                        Method = "POST",
+                        Headers = { ["Content-Type"] = "application/json" },
+                        Body = json
+                    })
+                    return response and response.Success
+                else
+                    game:HttpPost(tryUrl, json, "application/json")
+                    return true
+                end
+            end)
+            
+            if success and result then
+                return true -- Success!
+            else
+                lastError = result or "Unknown error"
+            end
+        end
+        
+        warn("Webhook Error (All proxies failed): " .. tostring(lastError))
+        return false
+    end
+
+    local function SafeGet(replion, key)
+        if not replion or not replion.Get then return nil end
+        local success, result = pcall(replion.Get, replion, key)
+        return success and result or nil
+    end
+
+    local function deepCopy(original)
+        if type(original) ~= "table" then return original end
+        local copy = {}
+        for k, v in pairs(original) do
+            copy[k] = deepCopy(v)
+        end
+        return copy
+    end
+
+    local function SafeInventoryAccess()
+        if not DataReplion then return nil end
+        local attempts = 0
+        local maxAttempts = 3
+        local result = nil
+        
+        while attempts < maxAttempts do
+            local success, data = pcall(function()
+                return SafeGet(DataReplion, "Inventory")
+            end)
+            
+            if success and data then
+                result = data
+                break
+            end
+            
+            attempts = attempts + 1
+            if attempts < maxAttempts then
+                task.wait(0.5)
+            end
+        end
+        
+        return result
+    end
+
+    local function getItems()
+        local inventoryData = SafeInventoryAccess() 
+        local items = nil
+        if inventoryData and type(inventoryData) == "table" then 
+            items = inventoryData.Items 
+        end
+        if not items then 
+            local success, fallback = pcall(function()
+                return SafeGet(DataReplion, "Items")
+            end)
+            if success then items = fallback end
+        end
+        
+        return items and deepCopy(items) or nil
+    end
+
+    local function CheckInventoryForNewItems()
+        if not state.WebhookEnabled or not ItemUtility then return end
+        local currentItems = getItems()
+        if currentItems and type(currentItems) == "table" then
+            for _, item in pairs(currentItems) do
+                if item.UUID and not knownUUIDs[item.UUID] then
+                    knownUUIDs[item.UUID] = true
+                    
+                    if item.Id then
+                        local itemData = ItemUtility:GetItemData(item.Id)
+                        if itemData and itemData.Data and itemData.Data.Type == "Fish" then
+                            local name = itemData.Data.Name or "Unknown Fish"
+                            local tier = itemData.Data.Tier or 1
+                            
+                            task.spawn(SendWebhook, name, tostring(tier))
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    local function handleNotification(child)
+        if not state.WebhookEnabled then return end
+        
+        task.spawn(function()
+            local main = child:WaitForChild("Main", 2) or child:WaitForChild("main", 2)
+            if main then
+                local title = main:WaitForChild("Title", 2) or main:WaitForChild("title", 2)
+                local amount = main:WaitForChild("Amount", 2) or main:WaitForChild("amount", 2)
+                
+                if title and title:IsA("TextLabel") then
+                    local timeout = 0
+                    while title.Text == "" and timeout < 10 do
+                        task.wait(0.1)
+                        timeout = timeout + 1
+                    end
+                    
+                    local fishName = title.Text
+                    if fishName ~= "" then
+                        local tierStr = "1"
+                        if amount and amount:IsA("TextLabel") then
+                            tierStr = amount.Text:match("Tier%s*[:]?%s*(%d+)") or "1"
+                        end
+                        
+                        if #fishName > 1 then
+                            local success = SendWebhook(fishName, tierStr)
+                            if not success then
+                                task.wait(3)
+                            else
+                                task.wait(1.5)
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+    end
+
+    local function setupMonitor()
+        local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+        if not playerGui then return end
+        local smallNotif = playerGui:WaitForChild("Small Notification", 10)
+        if smallNotif then
+            local display = smallNotif:WaitForChild("Display", 5) or smallNotif:WaitForChild("display", 5)
+            if display then
+                display.ChildAdded:Connect(handleNotification)
+                for _, child in pairs(display:GetChildren()) do
+                    if child:IsA("Frame") then
+                        handleNotification(child)
+                    end
+                end
+            end
+        end
     end
 
     local function getPlayers()
@@ -257,42 +535,6 @@
 
     _G.CompleteDelay = 0.1
     _G.CancelDelay = 0.05
-
-    local state = { 
-        AutoSell = false, 
-        InstantFishing = false,
-        WebhookEnabled = false,
-        WebhookURL = "",
-        WebhookTiers = {
-            ["1"] = true,
-            ["2"] = true,
-            ["3"] = true,
-            ["4"] = true,
-            ["5"] = true,
-            ["6"] = true,
-            ["7"] = true,
-        },
-        -- Support Features
-        NoFishingAnimation = false,
-        ShowPing = false,
-        LockPosition = false,
-        DisableSkinEffect = false,
-        DisableEffect = false,
-        DisableFishingEffect = false,
-        -- Booster FPS
-        ReduceMap = false,
-        -- Server Features
-        AutoReconnect = true,
-        AntiAfk = false,
-        -- Fishing Support
-        AutoEquipRod = false,
-        WalkOnWater = false,
-        DisableCutscene = false,
-        -- Lighting & Movement
-        Fullbright = false,
-        WalkSpeed = 16,
-        JumpPower = 50,
-    }
 
     local Player = Players.LocalPlayer
 
@@ -589,121 +831,11 @@
 
     task.spawn(AutoReconnect)
 
-    -- Webhook State & Cache
-    local lastSentFish = {name = "", tier = "", time = 0}
-    local knownUUIDs = {}
-
-    local function SendWebhook(fishName, tier)
-        if not state.WebhookEnabled or state.WebhookURL == "" then return end
-        
-        -- Duplicate check (avoid UI and Inventory monitors triggering at the same time)
-        local currentTime = tick()
-        if lastSentFish.name == fishName and lastSentFish.tier == tostring(tier) and (currentTime - lastSentFish.time) < 3 then
-            return
-        end
-        lastSentFish = {name = fishName, tier = tostring(tier), time = currentTime}
-
-        -- Filter out common non-fish notifications
-        local lowerName = fishName:lower()
-        local filters = {"inventory full", "level up", "quest complete", "new area", "achievement"}
-        for _, filter in pairs(filters) do
-            if lowerName:find(filter) then return end
-        end
-
-        -- Check if tier is enabled
-        local tierStr = tostring(tier)
-        if not state.WebhookTiers[tierStr] then return end
-        
-        -- Robust Discord proxy handling
-        local url = state.WebhookURL
-        if url:find("discord.com/api/webhooks") then
-            url = url:gsub("discord.com", "webhook.lewisakura.moe")
-        elseif not url:find("webhook.lewisakura.moe") and not url:find("discordapp.com") then
-            -- If it's not a discord or proxy URL, warn the user
-            warn("Webhook URL might be invalid: " .. url)
-        end
-        
-        local tierColors = {
-            ["1"] = 0x808080, -- Common
-            ["2"] = 0x00ff00, -- Uncommon
-            ["3"] = 0x0000ff, -- Rare
-            ["4"] = 0xa335ee, -- Epic
-            ["5"] = 0xff8000, -- Legendary
-            ["6"] = 0xff0000, -- Mythic
-            ["7"] = 0xffff00, -- Secret
-        }
-
-        local data = {
-            ["username"] = "ErHub V2 Notifier",
-            ["avatar_url"] = "https://i.imgur.com/8Q9H4YV.png",
-            ["embeds"] = {{
-                ["title"] = "🐟 New Fish Caught!",
-                ["description"] = string.format("Congratulations! You just caught a **%s**!", fishName),
-                ["color"] = tierColors[tierStr] or 0x00ff00,
-                ["fields"] = {
-                    {
-                        ["name"] = "Tier",
-                        ["value"] = "Tier " .. tierStr,
-                        ["inline"] = true
-                    },
-                    {
-                        ["name"] = "Player",
-                        ["value"] = LocalPlayer.Name,
-                        ["inline"] = true
-                    }
-                },
-                ["footer"] = {
-                    ["text"] = "ErHub• " .. os.date("%X")
-                },
-                ["timestamp"] = DateTime.now():ToIsoDate()
-            }}
-        }
-        
-        task.spawn(function()
-            local success, err = pcall(function()
-                local json = game:GetService("HttpService"):JSONEncode(data)
-                local request = (syn and syn.request) or (http and http.request) or http_request or (Fluxus and Fluxus.request) or request
-                
-                if request then
-                    local response = request({
-                        Url = url,
-                        Method = "POST",
-                        Headers = { ["Content-Type"] = "application/json" },
-                        Body = json
-                    })
-                    if not response.Success then
-                        warn("Webhook failed with status: " .. tostring(response.StatusCode))
-                    end
-                else
-                    -- Fallback to HttpPost if no custom request function
-                    game:HttpPost(url, json, "application/json")
-                end
-            end)
-            
-            if not success then
-                warn("Webhook Error: " .. tostring(err))
-            end
-        end)
-    end
-
-    -- Inventory Monitoring System (Based on tradesystem.lua logic)
+    -- Inventory Monitoring System Initialization
     task.spawn(function()
         -- Wait for data modules to load
         while not DataReplion or not ItemUtility do task.wait(1) end
         
-        local function SafeGet(replion, key)
-            local success, result = pcall(replion.Get, replion, key)
-            return success and result or nil
-        end
-
-        local function getItems()
-            local inventoryData = SafeGet(DataReplion, "Inventory") 
-            local items = nil
-            if inventoryData and type(inventoryData) == "table" then items = inventoryData.Items end
-            if not items then items = SafeGet(DataReplion, "Items") end -- Fallback
-            return items
-        end
-
         -- Initial scan to populate knownUUIDs
         local initialItems = getItems()
         if initialItems and type(initialItems) == "table" then
@@ -712,116 +844,47 @@
             end
         end
 
-        -- Monitor loop
-        while true do
-            if state.WebhookEnabled then
-                local currentItems = getItems()
-                if currentItems and type(currentItems) == "table" then
-                    for _, item in pairs(currentItems) do
-                        if item.UUID and not knownUUIDs[item.UUID] then
-                            knownUUIDs[item.UUID] = true
-                            
-                            -- New item detected!
-                            if item.Id then
-                                local itemData = ItemUtility:GetItemData(item.Id)
-                                if itemData and itemData.Data and itemData.Data.Type == "Fish" then
-                                    local name = itemData.Data.Name or "Unknown Fish"
-                                    local tier = itemData.Data.Tier or 1
-                                    
-                                    SendWebhook(name, tostring(tier))
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-            task.wait(1) -- Using a 1s interval for faster detection
-        end
-    end)
-
-    -- Hook FishingCompleted to detect fish catches directly from the server response
-    -- This is a secondary detection method in case the UI monitor fails
-    local oldFinishRemote
-    oldFinishRemote = hookmetamethod(finishRemote, "__index", function(self, key)
-        if key == "FireServer" and not checkcaller() then
-            return function(self, ...)
-                local args = {...}
-                -- If we are firing the remote, it means we caught something or finished the minigame
-                -- We can try to wait for a potential notification to appear
-                return oldFinishRemote(self, "FireServer")(self, unpack(args))
-            end
-        end
-        return oldFinishRemote(self, key)
-    end)
-
-    -- Hook the client event that handles notifications if possible
-    -- Many games use a specific RemoteEvent for notifications
-    -- For now, we rely on the UI monitor which is already improved.
-
-    -- Monitor notifications for catches (More reliable than hooking the remote since we can't easily see the return of FireServer)
-    task.spawn(function()
-        local playerGui = LocalPlayer:WaitForChild("PlayerGui")
-        
-        local function handleNotification(child)
-        if not state.WebhookEnabled then return end
-        
-        -- Use task.spawn to not block the main monitor
+        -- Start Fallback Loop
         task.spawn(function()
-            -- Wait a bit for children to be added
-            local main = child:WaitForChild("Main", 2) or child:WaitForChild("main", 2)
-            if main then
-                local title = main:WaitForChild("Title", 2) or main:WaitForChild("title", 2)
-                local amount = main:WaitForChild("Amount", 2) or main:WaitForChild("amount", 2)
-                
-                if title and title:IsA("TextLabel") then
-                    -- Wait for text to be populated if it's empty
-                    local timeout = 0
-                    while title.Text == "" and timeout < 10 do
-                        task.wait(0.1)
-                        timeout = timeout + 1
-                    end
-                    
-                    local fishName = title.Text
-                    if fishName ~= "" then
-                        local tierStr = "1"
-                        if amount and amount:IsA("TextLabel") then
-                            -- Extract tier from amount text like "Tier 5" or "Tier: 5"
-                            tierStr = amount.Text:match("Tier%s*[:]?%s*(%d+)") or "1"
-                        end
-                        
-                        -- Only send if it looks like a fish catch (names are usually capitalized or have multiple words)
-                        if #fishName > 1 then
-                            SendWebhook(fishName, tierStr)
-                        end
-                    end
+            while true do
+                if state.WebhookEnabled then
+                    CheckInventoryForNewItems()
                 end
+                task.wait(5)
             end
         end)
-    end
 
-        local function setupMonitor()
-            local smallNotif = playerGui:WaitForChild("Small Notification", 10)
-            if smallNotif then
-                local display = smallNotif:WaitForChild("Display", 5) or smallNotif:WaitForChild("display", 5)
-                if display then
-                    display.ChildAdded:Connect(handleNotification)
-                    -- Check existing
-                    for _, child in pairs(display:GetChildren()) do
-                        if child:IsA("Frame") then
-                            handleNotification(child)
-                        end
-                    end
-                end
-            end
-        end
-
+        -- Setup Notification Monitor
         setupMonitor()
+        
         -- Re-setup if GUI resets
+        local playerGui = LocalPlayer:WaitForChild("PlayerGui")
         playerGui.ChildAdded:Connect(function(child)
             if child.Name == "Small Notification" then
                 setupMonitor()
             end
         end)
+    end)
+
+    -- Hook FishingCompleted for direct catch detection
+    local oldFinishRemote
+    oldFinishRemote = hookmetamethod(finishRemote, "__index", function(self, key)
+        if key == "FireServer" and not checkcaller() then
+            return function(self, ...)
+                local args = {...}
+                
+                -- Proactive inventory check for manual fishing
+                if state.WebhookEnabled then
+                    task.spawn(function()
+                        task.wait(2.0) -- Wait for server processing
+                        CheckInventoryForNewItems()
+                    end)
+                end
+                
+                return oldFinishRemote(self, "FireServer")(self, unpack(args))
+            end
+        end
+        return oldFinishRemote(self, key)
     end)
 
     -------------------------------------------
@@ -864,26 +927,30 @@
     end
 
     local function ContinuousFPSBoost()
+        -- Initial Optimization
         task.spawn(function()
-            while task.wait(1) do
-                if state.ReduceMap then
-                    for _, v in game:GetDescendants() do
-                        OptimizeObject(v)
-                    end
+            if state.ReduceMap then
+                for _, v in workspace:GetDescendants() do
+                    OptimizeObject(v)
                 end
             end
         end)
         
-        game.DescendantAdded:Connect(function(v)
+        -- Real-time Optimization
+        workspace.DescendantAdded:Connect(function(v)
             if state.ReduceMap then
                 OptimizeObject(v)
             end
         end)
         
-        RunService.Heartbeat:Connect(function()
-            if state.ReduceMap then
-                settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
-                ClearTerrainWater()
+        -- Periodic Cleanup (Low Frequency) instead of heavy loop
+        task.spawn(function()
+            while task.wait(10) do
+                if state.ReduceMap then
+                    -- Only checking lighting/terrain effects periodically
+                    settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+                    ClearTerrainWater()
+                end
             end
         end)
     end
@@ -999,6 +1066,12 @@
                                         task.wait(_G.CompleteDelay)
                                     end
                                     finishRemote:FireServer(true)
+                                    
+                                    -- Trigger inventory check after a catch
+                                    task.spawn(function()
+                                        task.wait(1.5)
+                                        CheckInventoryForNewItems()
+                                    end)
                                 end
                                 
                                 -- 4. Adjustable Reset (Cancel)
@@ -1269,8 +1342,8 @@
         Title = sBtn("Select Tiers"),
         Content = sDesc("Select which fish tiers should trigger notifications."),
         Multi = true,
-        Values = {sBtn("Tier 1"), sBtn("Tier 2"), sBtn("Tier 3"), sBtn("Tier 4"), sBtn("Tier 5"), sBtn("Tier 6"), sBtn("Tier 7")},
-        Default = {sBtn("Tier 1"), sBtn("Tier 2"), sBtn("Tier 3"), sBtn("Tier 4"), sBtn("Tier 5"), sBtn("Tier 6"), sBtn("Tier 7")},
+        Values = {sBtn("Tier 1 (Common)"), sBtn("Tier 2 (Uncommon)"), sBtn("Tier 3 (Rare)"), sBtn("Tier 4 (Epic)"), sBtn("Tier 5 (Legendary)"), sBtn("Tier 6 (Mythic)"), sBtn("Tier 7 (Secret)")},
+        Default = {sBtn("Tier 1 (Common)"), sBtn("Tier 2 (Uncommon)"), sBtn("Tier 3 (Rare)"), sBtn("Tier 4 (Epic)"), sBtn("Tier 5 (Legendary)"), sBtn("Tier 6 (Mythic)"), sBtn("Tier 7 (Secret)")},
         Callback = function(v)
             -- Reset all to false first
             for i = 1, 7 do
@@ -1411,26 +1484,27 @@
                         end
                     end
                     
-                    -- Memory Cleanup: Destroy all children except UIScale
+                    -- Non-destructive hiding
                     if not displayMonitor then
                         displayMonitor = disp.ChildAdded:Connect(function(child)
                             if _G.HideNotifications and not child:IsA("UIScale") then
-                                -- Ensure webhook still catches it before destruction
+                                -- Ensure webhook still catches it
                                 if state.WebhookEnabled then
                                     handleNotification(child)
                                 end
-                                task.wait(1.5) -- Give it more time for webhook to process (wait for text to populate)
-                                if child and child.Parent then
-                                    child:Destroy()
+                                
+                                -- Instead of destroying, we just hide it immediately
+                                if child:IsA("Frame") then
+                                    child.Visible = false
                                 end
                             end
                         end)
                     end
                     
-                    -- Clear existing children immediately
+                    -- Hide existing children immediately
                     for _, child in pairs(disp:GetChildren()) do
-                        if not child:IsA("UIScale") then
-                            child:Destroy()
+                        if child:IsA("Frame") then
+                            child.Visible = false
                         end
                     end
                 end
