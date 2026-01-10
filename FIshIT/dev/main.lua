@@ -1,4 +1,45 @@
 
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local LocalPlayer = Players.LocalPlayer
+
+    local state = { 
+        AutoSell = false, 
+        InstantFishing = false,
+        WebhookEnabled = false,
+        WebhookURL = "",
+        WebhookTiers = {
+            ["1"] = true,
+            ["2"] = true,
+            ["3"] = true,
+            ["4"] = true,
+            ["5"] = true,
+            ["6"] = true,
+            ["7"] = true,
+        },
+        -- Support Features
+        NoFishingAnimation = false,
+        ShowPing = false,
+        LockPosition = false,
+        DisableSkinEffect = false,
+        DisableEffect = false,
+        DisableFishingEffect = false,
+        -- Booster FPS
+        ReduceMap = false,
+        -- Server Features
+        AutoReconnect = true,
+        AntiAfk = false,
+        -- Fishing Support
+        AutoEquipRod = false,
+        WalkOnWater = false,
+        DisableCutscene = false,
+        -- Lighting & Movement
+        Fullbright = false,
+        WalkSpeed = 16,
+        JumpPower = 50,
+    }
+
     -------------------------------------------
     ----- =======[ Load WindUI ] =======
     -------------------------------------------
@@ -8,11 +49,6 @@
     -------------------------------------------
     ----- =======[ GLOBAL FUNCTION ] =======
     -------------------------------------------
-
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local Players = game:GetService("Players")
-    local RunService = game:GetService("RunService")
-    local LocalPlayer = Players.LocalPlayer
 
     local Replion
     local ItemUtility
@@ -60,6 +96,141 @@
             Duration = 1,
             Icon = "info"
         })
+    end
+
+    local knownUUIDs = {}
+
+    -- Function definitions moved to top level for correct scope
+    local function SafeGet(replion, key)
+        if not replion or not replion.Get then return nil end
+        local success, result = pcall(replion.Get, replion, key)
+        return success and result or nil
+    end
+
+    local function deepCopy(original)
+        if type(original) ~= "table" then return original end
+        local copy = {}
+        for k, v in pairs(original) do
+            copy[k] = deepCopy(v)
+        end
+        return copy
+    end
+
+    local function SafeInventoryAccess()
+        if not DataReplion then return nil end
+        local attempts = 0
+        local maxAttempts = 3
+        local result = nil
+        
+        while attempts < maxAttempts do
+            local success, data = pcall(function()
+                return SafeGet(DataReplion, "Inventory")
+            end)
+            
+            if success and data then
+                result = data
+                break
+            end
+            
+            attempts = attempts + 1
+            if attempts < maxAttempts then
+                task.wait(0.5)
+            end
+        end
+        
+        return result
+    end
+
+    local function getItems()
+        local inventoryData = SafeInventoryAccess() 
+        local items = nil
+        if inventoryData and type(inventoryData) == "table" then 
+            items = inventoryData.Items 
+        end
+        if not items then 
+            local success, fallback = pcall(function()
+                return SafeGet(DataReplion, "Items")
+            end)
+            if success then items = fallback end
+        end
+        
+        return items and deepCopy(items) or nil
+    end
+
+    local function CheckInventoryForNewItems()
+        if not state.WebhookEnabled or not ItemUtility then return end
+        local currentItems = getItems()
+        if currentItems and type(currentItems) == "table" then
+            for _, item in pairs(currentItems) do
+                if item.UUID and not knownUUIDs[item.UUID] then
+                    knownUUIDs[item.UUID] = true
+                    
+                    if item.Id then
+                        local itemData = ItemUtility:GetItemData(item.Id)
+                        if itemData and itemData.Data and itemData.Data.Type == "Fish" then
+                            local name = itemData.Data.Name or "Unknown Fish"
+                            local tier = itemData.Data.Tier or 1
+                            
+                            task.spawn(SendWebhook, name, tostring(tier))
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    local function handleNotification(child)
+        if not state.WebhookEnabled then return end
+        
+        task.spawn(function()
+            local main = child:WaitForChild("Main", 2) or child:WaitForChild("main", 2)
+            if main then
+                local title = main:WaitForChild("Title", 2) or main:WaitForChild("title", 2)
+                local amount = main:WaitForChild("Amount", 2) or main:WaitForChild("amount", 2)
+                
+                if title and title:IsA("TextLabel") then
+                    local timeout = 0
+                    while title.Text == "" and timeout < 10 do
+                        task.wait(0.1)
+                        timeout = timeout + 1
+                    end
+                    
+                    local fishName = title.Text
+                    if fishName ~= "" then
+                        local tierStr = "1"
+                        if amount and amount:IsA("TextLabel") then
+                            tierStr = amount.Text:match("Tier%s*[:]?%s*(%d+)") or "1"
+                        end
+                        
+                        if #fishName > 1 then
+                            local success = SendWebhook(fishName, tierStr)
+                            if not success then
+                                task.wait(3)
+                            else
+                                task.wait(1.5)
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+    end
+
+    local function setupMonitor()
+        local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+        if not playerGui then return end
+        local smallNotif = playerGui:WaitForChild("Small Notification", 10)
+        if smallNotif then
+            local display = smallNotif:WaitForChild("Display", 5) or smallNotif:WaitForChild("display", 5)
+            if display then
+                display.ChildAdded:Connect(handleNotification)
+                for _, child in pairs(display:GetChildren()) do
+                    if child:IsA("Frame") then
+                        handleNotification(child)
+                    end
+                end
+            end
+        end
     end
 
     local function getPlayers()
@@ -257,42 +428,6 @@
 
     _G.CompleteDelay = 0.1
     _G.CancelDelay = 0.05
-
-    local state = { 
-        AutoSell = false, 
-        InstantFishing = false,
-        WebhookEnabled = false,
-        WebhookURL = "",
-        WebhookTiers = {
-            ["1"] = true,
-            ["2"] = true,
-            ["3"] = true,
-            ["4"] = true,
-            ["5"] = true,
-            ["6"] = true,
-            ["7"] = true,
-        },
-        -- Support Features
-        NoFishingAnimation = false,
-        ShowPing = false,
-        LockPosition = false,
-        DisableSkinEffect = false,
-        DisableEffect = false,
-        DisableFishingEffect = false,
-        -- Booster FPS
-        ReduceMap = false,
-        -- Server Features
-        AutoReconnect = true,
-        AntiAfk = false,
-        -- Fishing Support
-        AutoEquipRod = false,
-        WalkOnWater = false,
-        DisableCutscene = false,
-        -- Lighting & Movement
-        Fullbright = false,
-        WalkSpeed = 16,
-        JumpPower = 50,
-    }
 
     local Player = Players.LocalPlayer
 
@@ -689,210 +824,60 @@
         return result
     end
 
-    -- Inventory Monitoring System (Based on tradesystem.lua logic)
+    -- Inventory Monitoring System Initialization
     task.spawn(function()
         -- Wait for data modules to load
         while not DataReplion or not ItemUtility do task.wait(1) end
         
-        local function SafeGet(replion, key)
-            local success, result = pcall(replion.Get, replion, key)
-            return success and result or nil
-        end
-
-        local function deepCopy(original)
-            if type(original) ~= "table" then return original end
-            local copy = {}
-            for k, v in pairs(original) do
-                copy[k] = deepCopy(v)
-            end
-            return copy
-        end
-
-        local function SafeInventoryAccess()
-        local attempts = 0
-        local maxAttempts = 3
-        local result = nil
-        
-        while attempts < maxAttempts do
-            local success, data = pcall(function()
-                return SafeGet(DataReplion, "Inventory")
-            end)
-            
-            if success and data then
-                result = data
-                break
-            end
-            
-            attempts = attempts + 1
-            if attempts < maxAttempts then
-                task.wait(0.5)
+        -- Initial scan to populate knownUUIDs
+        local initialItems = getItems()
+        if initialItems and type(initialItems) == "table" then
+            for _, item in pairs(initialItems) do
+                if item.UUID then knownUUIDs[item.UUID] = true end
             end
         end
-        
-        return result
-    end
 
-    local function getItems()
-        local inventoryData = SafeInventoryAccess() 
-        local items = nil
-        if inventoryData and type(inventoryData) == "table" then 
-            items = inventoryData.Items 
-        end
-        if not items then 
-            local success, fallback = pcall(function()
-                return SafeGet(DataReplion, "Items")
-            end)
-            if success then items = fallback end
-        end
-        
-        -- Use Clone to ensure we don't modify the original ReplicatedStorage data
-        -- or cause the InventoryController to lose references.
-        return items and deepCopy(items) or nil
-    end
-
-    -- Efficient Inventory Detection Function
-    local function CheckInventoryForNewItems()
-        if not state.WebhookEnabled then return end
-        local currentItems = getItems()
-        if currentItems and type(currentItems) == "table" then
-            for _, item in pairs(currentItems) do
-                if item.UUID and not knownUUIDs[item.UUID] then
-                    knownUUIDs[item.UUID] = true
-                    
-                    -- New item detected!
-                    if item.Id then
-                        local itemData = ItemUtility:GetItemData(item.Id)
-                        if itemData and itemData.Data and itemData.Data.Type == "Fish" then
-                            local name = itemData.Data.Name or "Unknown Fish"
-                            local tier = itemData.Data.Tier or 1
-                            
-                            task.spawn(SendWebhook, name, tostring(tier))
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    -- Initial scan to populate knownUUIDs
-    local initialItems = getItems()
-    if initialItems and type(initialItems) == "table" then
-        for _, item in pairs(initialItems) do
-            if item.UUID then knownUUIDs[item.UUID] = true end
-        end
-    end
-
-    -- Event-Driven Inventory Monitor (Optimized)
-    task.spawn(function()
-        -- 1. Listen for Inventory Folder Changes (if exists)
-        local inventoryController = ReplicatedStorage:WaitForChild("Controller", 5) and ReplicatedStorage.Controller:FindFirstChild("InventoryController")
-        if inventoryController then
-            inventoryController.ChildAdded:Connect(function()
-                task.wait(0.5) -- Small delay to allow data sync
-                CheckInventoryForNewItems()
-            end)
-        end
-
-        -- 2. Fallback: Periodic check every 5s instead of 1s to reduce load
-        while true do
-            if state.WebhookEnabled then
-                CheckInventoryForNewItems()
-            end
-            task.wait(5)
-        end
-    end)
-    end)
-
-    -- Hook FishingCompleted to detect fish catches directly from the server response
-    -- This is a secondary detection method in case the UI monitor fails
-    local oldFinishRemote
-    oldFinishRemote = hookmetamethod(finishRemote, "__index", function(self, key)
-        if key == "FireServer" and not checkcaller() then
-            return function(self, ...)
-                local args = {...}
-                -- If we are firing the remote, it means we caught something or finished the minigame
-                -- We can try to wait for a potential notification to appear
-                return oldFinishRemote(self, "FireServer")(self, unpack(args))
-            end
-        end
-        return oldFinishRemote(self, key)
-    end)
-
-    -- Hook the client event that handles notifications if possible
-    -- Many games use a specific RemoteEvent for notifications
-    -- For now, we rely on the UI monitor which is already improved.
-
-    -- Monitor notifications for catches (More reliable than hooking the remote since we can't easily see the return of FireServer)
-    task.spawn(function()
-        local playerGui = LocalPlayer:WaitForChild("PlayerGui")
-        
-        local function handleNotification(child)
-        if not state.WebhookEnabled then return end
-        
-        -- Use task.spawn to not block the main monitor
+        -- Start Fallback Loop
         task.spawn(function()
-            -- Wait a bit for children to be added
-            local main = child:WaitForChild("Main", 2) or child:WaitForChild("main", 2)
-            if main then
-                local title = main:WaitForChild("Title", 2) or main:WaitForChild("title", 2)
-                local amount = main:WaitForChild("Amount", 2) or main:WaitForChild("amount", 2)
-                
-                if title and title:IsA("TextLabel") then
-                    -- Wait for text to be populated if it's empty
-                    local timeout = 0
-                    while title.Text == "" and timeout < 10 do
-                        task.wait(0.1)
-                        timeout = timeout + 1
-                    end
-                    
-                    local fishName = title.Text
-                    if fishName ~= "" then
-                        local tierStr = "1"
-                        if amount and amount:IsA("TextLabel") then
-                            -- Extract tier from amount text like "Tier 5" or "Tier: 5"
-                            tierStr = amount.Text:match("Tier%s*[:]?%s*(%d+)") or "1"
-                        end
-                        
-                        -- Only send if it looks like a fish catch (names are usually capitalized or have multiple words)
-                        if #fishName > 1 then
-                            local success = SendWebhook(fishName, tierStr)
-                            
-                            -- Wait until SendWebhook returns a success status or at least a 3-second delay
-                            -- to give the InventoryController enough time to synchronize.
-                            local start = tick()
-                            while (not success) and (tick() - start < 3) do
-                                task.wait(0.5)
-                            end
-                        end
-                    end
+            while true do
+                if state.WebhookEnabled then
+                    CheckInventoryForNewItems()
                 end
+                task.wait(5)
             end
         end)
-    end
 
-        local function setupMonitor()
-            local smallNotif = playerGui:WaitForChild("Small Notification", 10)
-            if smallNotif then
-                local display = smallNotif:WaitForChild("Display", 5) or smallNotif:WaitForChild("display", 5)
-                if display then
-                    display.ChildAdded:Connect(handleNotification)
-                    -- Check existing
-                    for _, child in pairs(display:GetChildren()) do
-                        if child:IsA("Frame") then
-                            handleNotification(child)
-                        end
-                    end
-                end
-            end
-        end
-
+        -- Setup Notification Monitor
         setupMonitor()
+        
         -- Re-setup if GUI resets
+        local playerGui = LocalPlayer:WaitForChild("PlayerGui")
         playerGui.ChildAdded:Connect(function(child)
             if child.Name == "Small Notification" then
                 setupMonitor()
             end
         end)
+    end)
+
+    -- Hook FishingCompleted for direct catch detection
+    local oldFinishRemote
+    oldFinishRemote = hookmetamethod(finishRemote, "__index", function(self, key)
+        if key == "FireServer" and not checkcaller() then
+            return function(self, ...)
+                local args = {...}
+                
+                -- Proactive inventory check for manual fishing
+                if state.WebhookEnabled then
+                    task.spawn(function()
+                        task.wait(2.0) -- Wait for server processing
+                        CheckInventoryForNewItems()
+                    end)
+                end
+                
+                return oldFinishRemote(self, "FireServer")(self, unpack(args))
+            end
+        end
+        return oldFinishRemote(self, key)
     end)
 
     -------------------------------------------
@@ -935,26 +920,30 @@
     end
 
     local function ContinuousFPSBoost()
+        -- Initial Optimization
         task.spawn(function()
-            while task.wait(1) do
-                if state.ReduceMap then
-                    for _, v in game:GetDescendants() do
-                        OptimizeObject(v)
-                    end
+            if state.ReduceMap then
+                for _, v in workspace:GetDescendants() do
+                    OptimizeObject(v)
                 end
             end
         end)
         
-        game.DescendantAdded:Connect(function(v)
+        -- Real-time Optimization
+        workspace.DescendantAdded:Connect(function(v)
             if state.ReduceMap then
                 OptimizeObject(v)
             end
         end)
         
-        RunService.Heartbeat:Connect(function()
-            if state.ReduceMap then
-                settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
-                ClearTerrainWater()
+        -- Periodic Cleanup (Low Frequency) instead of heavy loop
+        task.spawn(function()
+            while task.wait(10) do
+                if state.ReduceMap then
+                    -- Only checking lighting/terrain effects periodically
+                    settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+                    ClearTerrainWater()
+                end
             end
         end)
     end
@@ -1070,6 +1059,12 @@
                                         task.wait(_G.CompleteDelay)
                                     end
                                     finishRemote:FireServer(true)
+                                    
+                                    -- Trigger inventory check after a catch
+                                    task.spawn(function()
+                                        task.wait(1.5)
+                                        CheckInventoryForNewItems()
+                                    end)
                                 end
                                 
                                 -- 4. Adjustable Reset (Cancel)
@@ -1482,26 +1477,27 @@
                         end
                     end
                     
-                    -- Memory Cleanup: Destroy all children except UIScale
+                    -- Non-destructive hiding
                     if not displayMonitor then
                         displayMonitor = disp.ChildAdded:Connect(function(child)
                             if _G.HideNotifications and not child:IsA("UIScale") then
-                                -- Ensure webhook still catches it before destruction
+                                -- Ensure webhook still catches it
                                 if state.WebhookEnabled then
                                     handleNotification(child)
                                 end
-                                task.wait(3) -- Give it enough time for webhook and inventory sync
-                                if child and child.Parent then
-                                    child:Destroy()
+                                
+                                -- Instead of destroying, we just hide it immediately
+                                if child:IsA("Frame") then
+                                    child.Visible = false
                                 end
                             end
                         end)
                     end
                     
-                    -- Clear existing children immediately
+                    -- Hide existing children immediately
                     for _, child in pairs(disp:GetChildren()) do
-                        if not child:IsA("UIScale") then
-                            child:Destroy()
+                        if child:IsA("Frame") then
+                            child.Visible = false
                         end
                     end
                 end
