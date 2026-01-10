@@ -689,6 +689,12 @@ ManualTradeSection:Button({
     Callback = function()
         if initializeDataModules() then
             NotifySuccess("Success", "Backpack refreshed")
+            -- Auto-update fish names dropdown if a tier is already selected
+            if manualSelectedTierValue then
+                local fishNames = getFishNamesByTier(manualSelectedTierValue)
+                ManualTradeSection:UpdateDropdown("Pilih Nama Ikan", fishNames)
+                NotifyInfo("Dropdown Updated", "Daftar ikan telah diperbarui untuk Tier yang dipilih.")
+            end
         else
             NotifyError("Failed", "Refresh failed")
         end
