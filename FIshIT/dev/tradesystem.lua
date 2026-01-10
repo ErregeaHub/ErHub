@@ -384,6 +384,11 @@ local TIER_MAPPING_V29 = {
     ["Common"] = 1,
 }
 
+local REVERSE_TIER_MAPPING_V29 = {}
+for name, tier in pairs(TIER_MAPPING_V29) do
+    REVERSE_TIER_MAPPING_V29[tostring(tier)] = name
+end
+
 -- List untuk Dropdown (Diurutkan dari tertinggi ke terendah)
 local tierDisplayNames = {}
 for name in pairs(TIER_MAPPING_V29) do table.insert(tierDisplayNames, name) end
@@ -482,7 +487,8 @@ GiveSection:Toggle({
             end
 
             -- Start the loop
-            NotifyInfo("Auto Trade Started", "Memulai pengiriman ikan Tier " .. selectedTierValue .. " ke " .. selectedPlayer .. ".")
+            local tierName = REVERSE_TIER_MAPPING_V29[tostring(selectedTierValue)] or tostring(selectedTierValue)
+            NotifyInfo("Auto Trade Started", "Memulai pengiriman ikan " .. tierName .. " ke " .. selectedPlayer .. ".")
 
             task.spawn(function()
                 while state.AutoTrade do
@@ -491,7 +497,7 @@ GiveSection:Toggle({
                     
                     if not selectedTierUUID then
                         -- Out of items, stop loop
-                        NotifySuccess("Trade Loop Selesai", "Semua ikan Tier " .. selectedTierValue .. " di tas Anda telah dikirim!")
+                        NotifySuccess("Trade Loop Selesai", "Semua ikan " .. tierName .. " di tas Anda telah dikirim!")
                         state.AutoTrade = false
                         break
                     end
@@ -504,7 +510,7 @@ GiveSection:Toggle({
                     end
                     local targetUserId = targetPlayerObject.UserId
 
-                    NotifyInfo("Trade Otomatis", string.format("Kirim 1x %s ke %s...", fishName or ("Ikan Tier " .. selectedTierValue), selectedPlayer))
+                    NotifyInfo("Trade Otomatis", string.format("Kirim 1x %s ke %s...", fishName or ("Ikan " .. tierName), selectedPlayer))
 
                     -- STEP 1: Initiate Trade (UserId, UUID)
                     local s1, r1 = pcall(Remote_InitiateTrade.InvokeServer, Remote_InitiateTrade, targetUserId, selectedTierUUID) 
@@ -517,7 +523,7 @@ GiveSection:Toggle({
                         -- Success!
                         NotifySuccess("Trade BERHASIL!", 
                             string.format("Trade Success, Auto Dalam 6 detik", 
-                                fishName or ("Ikan Tier " .. selectedTierValue)))
+                                fishName or ("Ikan " .. tierName)))
                         
                         task.wait(6) -- Jeda aman agar pemain target punya waktu untuk menyelesaikan trade window
                     end

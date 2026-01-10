@@ -589,8 +589,6 @@
 
     task.spawn(AutoReconnect)
 
-    local handleNotification -- Forward declaration
-
     -- Webhook State & Cache
     local lastSentFish = {name = "", tier = "", time = 0}
     local knownUUIDs = {}
@@ -598,39 +596,51 @@
     local function SendWebhook(fishName, tier)
         if not state.WebhookEnabled or state.WebhookURL == "" then return end
         
-        -- Duplicate check
+        -- Duplicate check (avoid UI and Inventory monitors triggering at the same time)
         local currentTime = tick()
         if lastSentFish.name == fishName and lastSentFish.tier == tostring(tier) and (currentTime - lastSentFish.time) < 3 then
             return
         end
         lastSentFish = {name = fishName, tier = tostring(tier), time = currentTime}
 
-        -- Filter non-fish
+        -- Filter out common non-fish notifications
         local lowerName = fishName:lower()
         local filters = {"inventory full", "level up", "quest complete", "new area", "achievement"}
         for _, filter in pairs(filters) do
             if lowerName:find(filter) then return end
         end
 
+        -- Check if tier is enabled
         local tierStr = tostring(tier)
         if not state.WebhookTiers[tierStr] then return end
         
-        -- Proxy handling
+        -- Robust Discord proxy handling
         local url = state.WebhookURL
         if url:find("discord.com/api/webhooks") then
             url = url:gsub("discord.com", "webhook.lewisakura.moe")
-        elseif url:find("discordapp.com/api/webhooks") then
-            url = url:gsub("discordapp.com", "webhook.lewisakura.moe")
+        elseif not url:find("webhook.lewisakura.moe") and not url:find("discordapp.com") then
+            -- If it's not a discord or proxy URL, warn the user
+            warn("Webhook URL might be invalid: " .. url)
         end
         
-        local tierColors = {
-            ["1"] = 0x808080, ["2"] = 0x00ff00, ["3"] = 0x0000ff,
-            ["4"] = 0xa335ee, ["5"] = 0xff8000, ["6"] = 0xff0000, ["7"] = 0xffff00,
+        local tierNames = {
+            ["1"] = "Common",
+            ["2"] = "Uncommon",
+            ["3"] = "Rare",
+            ["4"] = "Epic",
+            ["5"] = "Legendary",
+            ["6"] = "Mythic",
+            ["7"] = "Secret",
         }
 
-        local tierNames = {
-            ["1"] = "Common", ["2"] = "Uncommon", ["3"] = "Rare",
-            ["4"] = "Epic", ["5"] = "Legendary", ["6"] = "Mythic", ["7"] = "Secret",
+        local tierColors = {
+            ["1"] = 0x808080, -- Common
+            ["2"] = 0x00ff00, -- Uncommon
+            ["3"] = 0x0000ff, -- Rare
+            ["4"] = 0xa335ee, -- Epic
+            ["5"] = 0xff8000, -- Legendary
+            ["6"] = 0xff0000, -- Mythic
+            ["7"] = 0xffff00, -- Secret
         }
 
         local data = {
@@ -654,26 +664,28 @@
         }
         
         task.spawn(function()
-            print("[ErHub] Attempting to send webhook for: " .. fishName)
             local success, err = pcall(function()
                 local json = game:GetService("HttpService"):JSONEncode(data)
-                local req = (syn and syn.request) or (http and http.request) or http_request or (Fluxus and Fluxus.request) or request
+                local request = (syn and syn.request) or (http and http.request) or http_request or (Fluxus and Fluxus.request) or request
                 
-                if req then
-                    local res = req({
+                if request then
+                    local response = request({
                         Url = url,
                         Method = "POST",
-                        Headers = {["Content-Type"] = "application/json"},
+                        Headers = { ["Content-Type"] = "application/json" },
                         Body = json
                     })
-                    print("[ErHub] Webhook response status: " .. tostring(res and res.StatusCode or "No Response"))
+                    if not response.Success then
+                        warn("Webhook failed with status: " .. tostring(response.StatusCode))
+                    end
                 else
+                    -- Fallback to HttpPost if no custom request function
                     game:HttpPost(url, json, "application/json")
-                    print("[ErHub] Webhook sent via HttpPost fallback")
                 end
             end)
+            
             if not success then
-                warn("[ErHub] Webhook Error: " .. tostring(err))
+                warn("Webhook Error: " .. tostring(err))
             end
         end)
     end
@@ -751,7 +763,10 @@
     -- For now, we rely on the UI monitor which is already improved.
 
     -- Monitor notifications for catches (More reliable than hooking the remote since we can't easily see the return of FireServer)
-    handleNotification = function(child)
+    task.spawn(function()
+        local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+        
+        local function handleNotification(child)
         if not state.WebhookEnabled then return end
         
         -- Use task.spawn to not block the main monitor
@@ -788,11 +803,7 @@
         end)
     end
 
-    task.spawn(function()
-        local playerGui = LocalPlayer:WaitForChild("PlayerGui")
-        
         local function setupMonitor()
-            print("[ErHub] Setting up UI Notification Monitor...")
             local smallNotif = playerGui:WaitForChild("Small Notification", 10)
             if smallNotif then
                 local display = smallNotif:WaitForChild("Display", 5) or smallNotif:WaitForChild("display", 5)
@@ -1250,10 +1261,7 @@
         Title = sBtn("Test Webhook"),
         Callback = function()
             if state.WebhookURL ~= "" then
-                local oldEnabled = state.WebhookEnabled
-                state.WebhookEnabled = true -- Temporarily enable for test
                 SendWebhook("Test Fish", "7")
-                state.WebhookEnabled = oldEnabled -- Restore
                 NotifyInfo("Sent", "Test webhook sent!")
             else
                 NotifyError("Error", "No Webhook URL set!")
@@ -1265,8 +1273,8 @@
         Title = sBtn("Select Tiers"),
         Content = sDesc("Select which fish tiers should trigger notifications."),
         Multi = true,
-        Values = {sBtn("common"), sBtn("uncommon"), sBtn("rare"), sBtn("epic"), sBtn("legendary"), sBtn("mythic"), sBtn("secret")},
-        Default = {sBtn("common"), sBtn("uncommon"), sBtn("rare"), sBtn("epic"), sBtn("legendary"), sBtn("mythic"), sBtn("secret")},
+        Values = {sBtn("Tier 1 (Common)"), sBtn("Tier 2 (Uncommon)"), sBtn("Tier 3 (Rare)"), sBtn("Tier 4 (Epic)"), sBtn("Tier 5 (Legendary)"), sBtn("Tier 6 (Mythic)"), sBtn("Tier 7 (Secret)")},
+        Default = {sBtn("Tier 1 (Common)"), sBtn("Tier 2 (Uncommon)"), sBtn("Tier 3 (Rare)"), sBtn("Tier 4 (Epic)"), sBtn("Tier 5 (Legendary)"), sBtn("Tier 6 (Mythic)"), sBtn("Tier 7 (Secret)")},
         Callback = function(v)
             -- Reset all to false first
             for i = 1, 7 do

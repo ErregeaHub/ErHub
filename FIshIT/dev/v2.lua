@@ -417,6 +417,11 @@ local TIER_MAPPING = {
     ["Common"] = 1,
 }
 
+local REVERSE_TIER_MAPPING = {}
+for name, tier in pairs(TIER_MAPPING) do
+    REVERSE_TIER_MAPPING[tostring(tier)] = name
+end
+
 -- List untuk Dropdown (Diurutkan dari tertinggi ke terendah)
 local tierDisplayNames = {}
 for name in pairs(TIER_MAPPING) do table.insert(tierDisplayNames, name) end
@@ -594,13 +599,14 @@ ManualTradeSection:Toggle({
                 return
             end
             
-            NotifyInfo("Manual Trade Started", "Sending Tier " .. manualSelectedTierValue .. " fish to " .. manualSelectedPlayer)
+            local tierName = REVERSE_TIER_MAPPING[tostring(manualSelectedTierValue)] or tostring(manualSelectedTierValue)
+            NotifyInfo("Manual Trade Started", "Sending " .. tierName .. " fish to " .. manualSelectedPlayer)
             
             task.spawn(function()
                 while state.AutoTrade do
                     local uuid, fishName = findUUIDByTier(manualSelectedTierValue)
                     if not uuid then
-                        NotifySuccess("Done", "All Tier " .. manualSelectedTierValue .. " fish sent!")
+                        NotifySuccess("Done", "All " .. tierName .. " fish sent!")
                         state.AutoTrade = false
                         ManualTradeSection:UpdateToggle("Start Manual Trade", false)
                         break
