@@ -399,6 +399,15 @@ table.sort(tierDisplayNames, function(a, b)
 end)
 
 
+local function deepCopy(original)
+    if type(original) ~= "table" then return original end
+    local copy = {}
+    for k, v in pairs(original) do
+        copy[k] = deepCopy(v)
+    end
+    return copy
+end
+
 local function findUUIDByTier(targetTier)
     if not DataReplion or not ItemUtility then return nil end
 
@@ -409,9 +418,11 @@ local function findUUIDByTier(targetTier)
     
     if not items or type(items) ~= "table" then return nil end
 
+    -- Clone to ensure we don't modify the original ReplicatedStorage data
+    local itemsClone = deepCopy(items)
     local targetTierString = tostring(targetTier)
 
-    for _, item in ipairs(items) do
+    for _, item in ipairs(itemsClone) do
         if item.Id then
             local base = ItemUtility:GetItemData(item.Id)
             

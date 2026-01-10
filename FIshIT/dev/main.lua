@@ -700,12 +700,28 @@
             return success and result or nil
         end
 
+        local function deepCopy(original)
+            if type(original) ~= "table" then return original end
+            local copy = {}
+            for k, v in pairs(original) do
+                copy[k] = deepCopy(v)
+            end
+            return copy
+        end
+
         local function getItems()
             local inventoryData = SafeGet(DataReplion, "Inventory") 
             local items = nil
-            if inventoryData and type(inventoryData) == "table" then items = inventoryData.Items end
-            if not items then items = SafeGet(DataReplion, "Items") end -- Fallback
-            return items
+            if inventoryData and type(inventoryData) == "table" then 
+                items = inventoryData.Items 
+            end
+            if not items then 
+                items = SafeGet(DataReplion, "Items") -- Fallback
+            end
+            
+            -- Use Clone to ensure we don't modify the original ReplicatedStorage data
+            -- or cause the InventoryController to lose references.
+            return items and deepCopy(items) or nil
         end
 
         -- Initial scan to populate knownUUIDs

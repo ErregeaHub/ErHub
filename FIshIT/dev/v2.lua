@@ -599,14 +599,13 @@ ManualTradeSection:Toggle({
                 return
             end
             
-            local tierName = REVERSE_TIER_MAPPING[tostring(manualSelectedTierValue)] or tostring(manualSelectedTierValue)
-            NotifyInfo("Manual Trade Started", "Sending " .. tierName .. " fish to " .. manualSelectedPlayer)
+            NotifyInfo("Manual Trade Started", "Sending Tier " .. manualSelectedTierValue .. " fish to " .. manualSelectedPlayer)
             
             task.spawn(function()
                 while state.AutoTrade do
                     local uuid, fishName = findUUIDByTier(manualSelectedTierValue)
                     if not uuid then
-                        NotifySuccess("Done", "All " .. tierName .. " fish sent!")
+                        NotifySuccess("Done", "All Tier " .. manualSelectedTierValue .. " fish sent!")
                         state.AutoTrade = false
                         ManualTradeSection:UpdateToggle("Start Manual Trade", false)
                         break
