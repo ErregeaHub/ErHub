@@ -125,10 +125,16 @@
         if not state.WebhookTiers[tierStr] then return false end
         
         -- Robust Discord proxy handling
-        local url = state.WebhookURL
-        if url:find("discord.com") then
-            -- Using hooks.hyra.io as a reliable proxy
-            url = url:gsub("discord.com", "hooks.hyra.io")
+        local originalUrl = state.WebhookURL
+        local urlsToTry = {}
+        
+        -- Generate proxy list
+        if originalUrl:find("discord.com") or originalUrl:find("discordapp.com") then
+            table.insert(urlsToTry, (originalUrl:gsub("discord.com", "hooks.hyra.io"):gsub("discordapp.com", "hooks.hyra.io")))
+            table.insert(urlsToTry, (originalUrl:gsub("discord.com", "webhook.lewisakura.moe"):gsub("discordapp.com", "webhook.lewisakura.moe")))
+            table.insert(urlsToTry, originalUrl) -- Try original last
+        else
+            table.insert(urlsToTry, originalUrl)
         end
         
         local tierNames = {
@@ -171,30 +177,36 @@
             }}
         }
         
-        local success, result = pcall(function()
-            local json = game:GetService("HttpService"):JSONEncode(data)
-            local request = (syn and syn.request) or (http and http.request) or http_request or (Fluxus and Fluxus.request) or request
+        -- Try all URLs
+        local lastError = nil
+        for _, tryUrl in ipairs(urlsToTry) do
+            local success, result = pcall(function()
+                local json = game:GetService("HttpService"):JSONEncode(data)
+                local request = (syn and syn.request) or (http and http.request) or http_request or (Fluxus and Fluxus.request) or request
+                
+                if request then
+                    local response = request({
+                        Url = tryUrl,
+                        Method = "POST",
+                        Headers = { ["Content-Type"] = "application/json" },
+                        Body = json
+                    })
+                    return response and response.Success
+                else
+                    game:HttpPost(tryUrl, json, "application/json")
+                    return true
+                end
+            end)
             
-            if request then
-                local response = request({
-                    Url = url,
-                    Method = "POST",
-                    Headers = { ["Content-Type"] = "application/json" },
-                    Body = json
-                })
-                return response and response.Success
+            if success and result then
+                return true -- Success!
             else
-                -- Fallback to HttpPost if no custom request function
-                game:HttpPost(url, json, "application/json")
-                return true
+                lastError = result or "Unknown error"
             end
-        end)
-        
-        if not success then
-            warn("Webhook Error: " .. tostring(result))
-            return false
         end
-        return result
+        
+        warn("Webhook Error (All proxies failed): " .. tostring(lastError))
+        return false
     end
 
     local function SafeGet(replion, key)
