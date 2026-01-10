@@ -632,22 +632,28 @@
         }
 
         local data = {
-            ["username"] = "ErHub Notification!",
-            ["avatar_url"] = "https://i.imgur.com/V1gmBJQ.png",
+            ["username"] = "ErHub V2 Notifier",
+            ["avatar_url"] = "https://i.imgur.com/8Q9H4YV.png",
             ["embeds"] = {{
-                ["title"] = "ErHub Webhook | Fish Caught",
-                ["description"] = "Congratulations! You just caught a **" .. fishName .. "**!",
+                ["title"] = "🐟 New Fish Caught!",
+                ["description"] = string.format("Congratulations! You just caught a **%s**!", fishName),
                 ["color"] = tierColors[tierStr] or 0x00ff00,
                 ["fields"] = {
-                    {["name"] = "**〢 Rarity :**", ["value"] = "```" .. (tierNames[tierStr] or "Unknown") .. "```", ["inline"] = true},
-                    {["name"] = "**〢 Player :**", ["value"] = "```" .. LocalPlayer.Name .. "```", ["inline"] = true}
+                    {
+                        ["name"] = "Tier",
+                        ["value"] = "Tier " .. tierStr,
+                        ["inline"] = true
+                    },
+                    {
+                        ["name"] = "Player",
+                        ["value"] = LocalPlayer.Name,
+                        ["inline"] = true
+                    }
                 },
-                ["image"] = {["url"] = "https://i.imgur.com/HeWixh1.gif"},
                 ["footer"] = {
-                    ["text"] = "ErHub • " .. os.date("%X"),
-                    ["icon_url"] = "https://i.imgur.com/V1gmBJQ.png"
+                    ["text"] = "ErHub• " .. os.date("%X")
                 },
-                ["timestamp"] = os.date("!%Y-%m-%dT%H:%M:%SZ")
+                ["timestamp"] = DateTime.now():ToIsoDate()
             }}
         }
         
