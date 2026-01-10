@@ -616,11 +616,9 @@
         
         -- Robust Discord proxy handling
         local url = state.WebhookURL
-        if url:find("discord.com/api/webhooks") then
-            url = url:gsub("discord.com", "webhook.lewisakura.moe")
-        elseif not url:find("webhook.lewisakura.moe") and not url:find("discordapp.com") then
-            -- If it's not a discord or proxy URL, warn the user
-            warn("Webhook URL might be invalid: " .. url)
+        if url:find("discord.com") then
+            -- Using hooks.hyra.io as a reliable proxy
+            url = url:gsub("discord.com", "hooks.hyra.io")
         end
         
         local tierColors = {
