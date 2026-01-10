@@ -594,12 +594,12 @@
     local knownUUIDs = {}
 
     local function SendWebhook(fishName, tier)
-        if not state.WebhookEnabled or state.WebhookURL == "" then return end
+        if not state.WebhookEnabled or state.WebhookURL == "" then return false end
         
         -- Duplicate check (avoid UI and Inventory monitors triggering at the same time)
         local currentTime = tick()
         if lastSentFish.name == fishName and lastSentFish.tier == tostring(tier) and (currentTime - lastSentFish.time) < 3 then
-            return
+            return true -- Counted as success if it's a duplicate
         end
         lastSentFish = {name = fishName, tier = tostring(tier), time = currentTime}
 
@@ -607,12 +607,12 @@
         local lowerName = fishName:lower()
         local filters = {"inventory full", "level up", "quest complete", "new area", "achievement"}
         for _, filter in pairs(filters) do
-            if lowerName:find(filter) then return end
+            if lowerName:find(filter) then return false end
         end
 
         -- Check if tier is enabled
         local tierStr = tostring(tier)
-        if not state.WebhookTiers[tierStr] then return end
+        if not state.WebhookTiers[tierStr] then return false end
         
         -- Robust Discord proxy handling
         local url = state.WebhookURL
@@ -663,31 +663,30 @@
             }}
         }
         
-        task.spawn(function()
-            local success, err = pcall(function()
-                local json = game:GetService("HttpService"):JSONEncode(data)
-                local request = (syn and syn.request) or (http and http.request) or http_request or (Fluxus and Fluxus.request) or request
-                
-                if request then
-                    local response = request({
-                        Url = url,
-                        Method = "POST",
-                        Headers = { ["Content-Type"] = "application/json" },
-                        Body = json
-                    })
-                    if not response.Success then
-                        warn("Webhook failed with status: " .. tostring(response.StatusCode))
-                    end
-                else
-                    -- Fallback to HttpPost if no custom request function
-                    game:HttpPost(url, json, "application/json")
-                end
-            end)
+        local success, result = pcall(function()
+            local json = game:GetService("HttpService"):JSONEncode(data)
+            local request = (syn and syn.request) or (http and http.request) or http_request or (Fluxus and Fluxus.request) or request
             
-            if not success then
-                warn("Webhook Error: " .. tostring(err))
+            if request then
+                local response = request({
+                    Url = url,
+                    Method = "POST",
+                    Headers = { ["Content-Type"] = "application/json" },
+                    Body = json
+                })
+                return response and response.Success
+            else
+                -- Fallback to HttpPost if no custom request function
+                game:HttpPost(url, json, "application/json")
+                return true
             end
         end)
+        
+        if not success then
+            warn("Webhook Error: " .. tostring(result))
+            return false
+        end
+        return result
     end
 
     -- Inventory Monitoring System (Based on tradesystem.lua logic)
@@ -709,54 +708,99 @@
             return copy
         end
 
-        local function getItems()
-            local inventoryData = SafeGet(DataReplion, "Inventory") 
-            local items = nil
-            if inventoryData and type(inventoryData) == "table" then 
-                items = inventoryData.Items 
-            end
-            if not items then 
-                items = SafeGet(DataReplion, "Items") -- Fallback
+        local function SafeInventoryAccess()
+        local attempts = 0
+        local maxAttempts = 3
+        local result = nil
+        
+        while attempts < maxAttempts do
+            local success, data = pcall(function()
+                return SafeGet(DataReplion, "Inventory")
+            end)
+            
+            if success and data then
+                result = data
+                break
             end
             
-            -- Use Clone to ensure we don't modify the original ReplicatedStorage data
-            -- or cause the InventoryController to lose references.
-            return items and deepCopy(items) or nil
-        end
-
-        -- Initial scan to populate knownUUIDs
-        local initialItems = getItems()
-        if initialItems and type(initialItems) == "table" then
-            for _, item in pairs(initialItems) do
-                if item.UUID then knownUUIDs[item.UUID] = true end
+            attempts = attempts + 1
+            if attempts < maxAttempts then
+                task.wait(0.5)
             end
         end
+        
+        return result
+    end
 
-        -- Monitor loop
-        while true do
-            if state.WebhookEnabled then
-                local currentItems = getItems()
-                if currentItems and type(currentItems) == "table" then
-                    for _, item in pairs(currentItems) do
-                        if item.UUID and not knownUUIDs[item.UUID] then
-                            knownUUIDs[item.UUID] = true
+    local function getItems()
+        local inventoryData = SafeInventoryAccess() 
+        local items = nil
+        if inventoryData and type(inventoryData) == "table" then 
+            items = inventoryData.Items 
+        end
+        if not items then 
+            local success, fallback = pcall(function()
+                return SafeGet(DataReplion, "Items")
+            end)
+            if success then items = fallback end
+        end
+        
+        -- Use Clone to ensure we don't modify the original ReplicatedStorage data
+        -- or cause the InventoryController to lose references.
+        return items and deepCopy(items) or nil
+    end
+
+    -- Efficient Inventory Detection Function
+    local function CheckInventoryForNewItems()
+        if not state.WebhookEnabled then return end
+        local currentItems = getItems()
+        if currentItems and type(currentItems) == "table" then
+            for _, item in pairs(currentItems) do
+                if item.UUID and not knownUUIDs[item.UUID] then
+                    knownUUIDs[item.UUID] = true
+                    
+                    -- New item detected!
+                    if item.Id then
+                        local itemData = ItemUtility:GetItemData(item.Id)
+                        if itemData and itemData.Data and itemData.Data.Type == "Fish" then
+                            local name = itemData.Data.Name or "Unknown Fish"
+                            local tier = itemData.Data.Tier or 1
                             
-                            -- New item detected!
-                            if item.Id then
-                                local itemData = ItemUtility:GetItemData(item.Id)
-                                if itemData and itemData.Data and itemData.Data.Type == "Fish" then
-                                    local name = itemData.Data.Name or "Unknown Fish"
-                                    local tier = itemData.Data.Tier or 1
-                                    
-                                    SendWebhook(name, tostring(tier))
-                                end
-                            end
+                            task.spawn(SendWebhook, name, tostring(tier))
                         end
                     end
                 end
             end
-            task.wait(1) -- Using a 1s interval for faster detection
         end
+    end
+
+    -- Initial scan to populate knownUUIDs
+    local initialItems = getItems()
+    if initialItems and type(initialItems) == "table" then
+        for _, item in pairs(initialItems) do
+            if item.UUID then knownUUIDs[item.UUID] = true end
+        end
+    end
+
+    -- Event-Driven Inventory Monitor (Optimized)
+    task.spawn(function()
+        -- 1. Listen for Inventory Folder Changes (if exists)
+        local inventoryController = ReplicatedStorage:WaitForChild("Controller", 5) and ReplicatedStorage.Controller:FindFirstChild("InventoryController")
+        if inventoryController then
+            inventoryController.ChildAdded:Connect(function()
+                task.wait(0.5) -- Small delay to allow data sync
+                CheckInventoryForNewItems()
+            end)
+        end
+
+        -- 2. Fallback: Periodic check every 5s instead of 1s to reduce load
+        while true do
+            if state.WebhookEnabled then
+                CheckInventoryForNewItems()
+            end
+            task.wait(5)
+        end
+    end)
     end)
 
     -- Hook FishingCompleted to detect fish catches directly from the server response
@@ -811,7 +855,14 @@
                         
                         -- Only send if it looks like a fish catch (names are usually capitalized or have multiple words)
                         if #fishName > 1 then
-                            SendWebhook(fishName, tierStr)
+                            local success = SendWebhook(fishName, tierStr)
+                            
+                            -- Wait until SendWebhook returns a success status or at least a 3-second delay
+                            -- to give the InventoryController enough time to synchronize.
+                            local start = tick()
+                            while (not success) and (tick() - start < 3) do
+                                task.wait(0.5)
+                            end
                         end
                     end
                 end
@@ -1439,7 +1490,7 @@
                                 if state.WebhookEnabled then
                                     handleNotification(child)
                                 end
-                                task.wait(1.5) -- Give it more time for webhook to process (wait for text to populate)
+                                task.wait(3) -- Give it enough time for webhook and inventory sync
                                 if child and child.Parent then
                                     child:Destroy()
                                 end
