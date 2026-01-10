@@ -100,7 +100,103 @@
 
     local knownUUIDs = {}
 
-    -- Function definitions moved to top level for correct scope
+    -- Webhook State & Cache
+    local lastSentFish = {name = "", tier = "", time = 0}
+
+    local function SendWebhook(fishName, tier)
+        if not state.WebhookEnabled or state.WebhookURL == "" then return false end
+        
+        -- Duplicate check (avoid UI and Inventory monitors triggering at the same time)
+        local currentTime = tick()
+        if lastSentFish.name == fishName and lastSentFish.tier == tostring(tier) and (currentTime - lastSentFish.time) < 3 then
+            return true -- Counted as success if it's a duplicate
+        end
+        lastSentFish = {name = fishName, tier = tostring(tier), time = currentTime}
+
+        -- Filter out common non-fish notifications
+        local lowerName = fishName:lower()
+        local filters = {"inventory full", "level up", "quest complete", "new area", "achievement"}
+        for _, filter in pairs(filters) do
+            if lowerName:find(filter) then return false end
+        end
+
+        -- Check if tier is enabled
+        local tierStr = tostring(tier)
+        if not state.WebhookTiers[tierStr] then return false end
+        
+        -- Robust Discord proxy handling
+        local url = state.WebhookURL
+        if url:find("discord.com") then
+            -- Using hooks.hyra.io as a reliable proxy
+            url = url:gsub("discord.com", "hooks.hyra.io")
+        end
+        
+        local tierNames = {
+            ["1"] = "Common",
+            ["2"] = "Uncommon",
+            ["3"] = "Rare",
+            ["4"] = "Epic",
+            ["5"] = "Legendary",
+            ["6"] = "Mythic",
+            ["7"] = "Secret",
+        }
+
+        local tierColors = {
+            ["1"] = 0x808080, -- Common
+            ["2"] = 0x00ff00, -- Uncommon
+            ["3"] = 0x0000ff, -- Rare
+            ["4"] = 0xa335ee, -- Epic
+            ["5"] = 0xff8000, -- Legendary
+            ["6"] = 0xff0000, -- Mythic
+            ["7"] = 0xffff00, -- Secret
+        }
+
+        local data = {
+            ["username"] = "ErHub Notification!",
+            ["avatar_url"] = "https://i.imgur.com/V1gmBJQ.png",
+            ["embeds"] = {{
+                ["title"] = "ErHub Webhook | Fish Caught",
+                ["description"] = "Congratulations! You just caught a **" .. fishName .. "**!",
+                ["color"] = tierColors[tierStr] or 0x00ff00,
+                ["fields"] = {
+                    {["name"] = "**〢 Rarity :**", ["value"] = "```" .. (tierNames[tierStr] or "Unknown") .. "```", ["inline"] = true},
+                    {["name"] = "**〢 Player :**", ["value"] = "```" .. LocalPlayer.Name .. "```", ["inline"] = true}
+                },
+                ["image"] = {["url"] = "https://i.imgur.com/HeWixh1.gif"},
+                ["footer"] = {
+                    ["text"] = "ErHub • " .. os.date("%X"),
+                    ["icon_url"] = "https://i.imgur.com/V1gmBJQ.png"
+                },
+                ["timestamp"] = os.date("!%Y-%m-%dT%H:%M:%SZ")
+            }}
+        }
+        
+        local success, result = pcall(function()
+            local json = game:GetService("HttpService"):JSONEncode(data)
+            local request = (syn and syn.request) or (http and http.request) or http_request or (Fluxus and Fluxus.request) or request
+            
+            if request then
+                local response = request({
+                    Url = url,
+                    Method = "POST",
+                    Headers = { ["Content-Type"] = "application/json" },
+                    Body = json
+                })
+                return response and response.Success
+            else
+                -- Fallback to HttpPost if no custom request function
+                game:HttpPost(url, json, "application/json")
+                return true
+            end
+        end)
+        
+        if not success then
+            warn("Webhook Error: " .. tostring(result))
+            return false
+        end
+        return result
+    end
+
     local function SafeGet(replion, key)
         if not replion or not replion.Get then return nil end
         local success, result = pcall(replion.Get, replion, key)
@@ -723,104 +819,6 @@
     end)
 
     task.spawn(AutoReconnect)
-
-    -- Webhook State & Cache
-    local lastSentFish = {name = "", tier = "", time = 0}
-    local knownUUIDs = {}
-
-    local function SendWebhook(fishName, tier)
-        if not state.WebhookEnabled or state.WebhookURL == "" then return false end
-        
-        -- Duplicate check (avoid UI and Inventory monitors triggering at the same time)
-        local currentTime = tick()
-        if lastSentFish.name == fishName and lastSentFish.tier == tostring(tier) and (currentTime - lastSentFish.time) < 3 then
-            return true -- Counted as success if it's a duplicate
-        end
-        lastSentFish = {name = fishName, tier = tostring(tier), time = currentTime}
-
-        -- Filter out common non-fish notifications
-        local lowerName = fishName:lower()
-        local filters = {"inventory full", "level up", "quest complete", "new area", "achievement"}
-        for _, filter in pairs(filters) do
-            if lowerName:find(filter) then return false end
-        end
-
-        -- Check if tier is enabled
-        local tierStr = tostring(tier)
-        if not state.WebhookTiers[tierStr] then return false end
-        
-        -- Robust Discord proxy handling
-        local url = state.WebhookURL
-        if url:find("discord.com") then
-            -- Using hooks.hyra.io as a reliable proxy
-            url = url:gsub("discord.com", "hooks.hyra.io")
-        end
-        
-        local tierNames = {
-            ["1"] = "Common",
-            ["2"] = "Uncommon",
-            ["3"] = "Rare",
-            ["4"] = "Epic",
-            ["5"] = "Legendary",
-            ["6"] = "Mythic",
-            ["7"] = "Secret",
-        }
-
-        local tierColors = {
-            ["1"] = 0x808080, -- Common
-            ["2"] = 0x00ff00, -- Uncommon
-            ["3"] = 0x0000ff, -- Rare
-            ["4"] = 0xa335ee, -- Epic
-            ["5"] = 0xff8000, -- Legendary
-            ["6"] = 0xff0000, -- Mythic
-            ["7"] = 0xffff00, -- Secret
-        }
-
-        local data = {
-            ["username"] = "ErHub Notification!",
-            ["avatar_url"] = "https://i.imgur.com/V1gmBJQ.png",
-            ["embeds"] = {{
-                ["title"] = "ErHub Webhook | Fish Caught",
-                ["description"] = "Congratulations! You just caught a **" .. fishName .. "**!",
-                ["color"] = tierColors[tierStr] or 0x00ff00,
-                ["fields"] = {
-                    {["name"] = "**〢 Rarity :**", ["value"] = "```" .. (tierNames[tierStr] or "Unknown") .. "```", ["inline"] = true},
-                    {["name"] = "**〢 Player :**", ["value"] = "```" .. LocalPlayer.Name .. "```", ["inline"] = true}
-                },
-                ["image"] = {["url"] = "https://i.imgur.com/HeWixh1.gif"},
-                ["footer"] = {
-                    ["text"] = "ErHub • " .. os.date("%X"),
-                    ["icon_url"] = "https://i.imgur.com/V1gmBJQ.png"
-                },
-                ["timestamp"] = os.date("!%Y-%m-%dT%H:%M:%SZ")
-            }}
-        }
-        
-        local success, result = pcall(function()
-            local json = game:GetService("HttpService"):JSONEncode(data)
-            local request = (syn and syn.request) or (http and http.request) or http_request or (Fluxus and Fluxus.request) or request
-            
-            if request then
-                local response = request({
-                    Url = url,
-                    Method = "POST",
-                    Headers = { ["Content-Type"] = "application/json" },
-                    Body = json
-                })
-                return response and response.Success
-            else
-                -- Fallback to HttpPost if no custom request function
-                game:HttpPost(url, json, "application/json")
-                return true
-            end
-        end)
-        
-        if not success then
-            warn("Webhook Error: " .. tostring(result))
-            return false
-        end
-        return result
-    end
 
     -- Inventory Monitoring System Initialization
     task.spawn(function()
