@@ -38,6 +38,9 @@
         Fullbright = false,
         WalkSpeed = 16,
         JumpPower = 50,
+        -- Weather Features
+        AutoWeather = false,
+        SelectedWeather = {},
     }
 
     -------------------------------------------
@@ -54,6 +57,7 @@
     local ItemUtility
     local DataReplion
     local sellRemote = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_net@0.2.0"):WaitForChild("net"):WaitForChild("RF/SellAllItems")
+    local weatherRemote = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_net@0.2.0"):WaitForChild("net"):WaitForChild("RF/PurchaseWeatherEvent")
 
     -------------------------------------------
     ----- =======[ MOBILE SCALING ] =======
@@ -560,65 +564,132 @@
         end
     end)
 
-    -- Ping Panel Logic
-    local function CreatePingPanel()
-        local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-        if not playerGui then return nil end
+    local PingPanelGui
+    local PingPanelEvents = {}
+    local PingFrame
+    local PingLabel
+    local dragging = false
+    local dragInput
+    local dragStart
+    local startPos
+    
+    local function ShowPingPanel()
+        if PingPanelGui then return end
+        local CoreGui = game:GetService("CoreGui")
+        local UserInputService = game:GetService("UserInputService")
+        local RunService = game:GetService("RunService")
+        local Stats = game:GetService("Stats")
         
-        local screenGui = playerGui:FindFirstChild("PingPanel")
-        if not screenGui then
-            screenGui = Instance.new("ScreenGui")
-            screenGui.Name = "PingPanel"
-            screenGui.ResetOnSpawn = false
-            screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-            screenGui.Parent = playerGui
-        end
+        PingPanelGui = Instance.new("ScreenGui")
+        PingPanelGui.Name = "ErHub_PingPanel"
+        PingPanelGui.ResetOnSpawn = false
+        PingPanelGui.Parent = CoreGui
         
-        local label = screenGui:FindFirstChild("PingLabel")
-        if not label then
-            label = Instance.new("TextLabel")
-            label.Name = "PingLabel"
-            label.Size = UDim2.new(0, 120, 0, 30)
-            label.Position = UDim2.new(0.5, -60, 0, 10) -- Top middle
-            label.BackgroundTransparency = 0.5
-            label.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-            label.TextColor3 = Color3.new(1, 1, 1)
-            label.Font = Enum.Font.RobotoMono
-            label.TextSize = 16
-            label.BorderSizePixel = 0
-            
-            local corner = Instance.new("UICorner")
-            corner.CornerRadius = UDim.new(0, 6)
-            corner.Parent = label
-            
-            label.Parent = screenGui
-        end
-        return label
-    end
-
-    task.spawn(function()
-        while task.wait(1) do
-            if state.ShowPing then
-                local ping = 0
-                local stats = game:GetService("Stats")
-                pcall(function()
-                    ping = stats.Network.ServerStatsItem["Data Ping"]:GetValue()
+        PingFrame = Instance.new("Frame")
+        PingFrame.Name = "MainFrame"
+        PingFrame.Parent = PingPanelGui
+        PingFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+        PingFrame.BackgroundTransparency = 0.4
+        PingFrame.Position = UDim2.new(0.02, 0, 0.05, 0)
+        PingFrame.Size = UDim2.new(0, 160, 0, 60)
+        
+        local Corner = Instance.new("UICorner")
+        Corner.CornerRadius = UDim.new(0, 6)
+        Corner.Parent = PingFrame
+        
+        local Stroke = Instance.new("UIStroke")
+        Stroke.Thickness = 1
+        Stroke.Color = Color3.fromRGB(0, 225, 255)
+        Stroke.Parent = PingFrame
+        
+        local Header = Instance.new("TextLabel")
+        Header.Name = "Header"
+        Header.Parent = PingFrame
+        Header.BackgroundTransparency = 1
+        Header.Position = UDim2.new(0, 6, 0, 4)
+        Header.Size = UDim2.new(1, -12, 0, 16)
+        Header.Font = Enum.Font.Code
+        Header.RichText = true
+        Header.Text = "<b>ERHUB PANEL</b>"
+        Header.TextSize = 12
+        Header.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Header.TextXAlignment = Enum.TextXAlignment.Left
+        
+        local Separator = Instance.new("Frame")
+        Separator.Name = "Separator"
+        Separator.Parent = PingFrame
+        Separator.BackgroundColor3 = Color3.fromRGB(0, 225, 255)
+        Separator.BackgroundTransparency = 0
+        Separator.Position = UDim2.new(0, 6, 0, 24)
+        Separator.Size = UDim2.new(1, -12, 0, 1)
+        
+        PingLabel = Instance.new("TextLabel")
+        PingLabel.Name = "PingLabel"
+        PingLabel.Parent = PingFrame
+        PingLabel.BackgroundTransparency = 1
+        PingLabel.Position = UDim2.new(0, 6, 0, 28)
+        PingLabel.Size = UDim2.new(1, -12, 0, 24)
+        PingLabel.Font = Enum.Font.Code
+        PingLabel.Text = "Ping: 0 ms"
+        PingLabel.TextSize = 12
+        PingLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+        PingLabel.TextXAlignment = Enum.TextXAlignment.Left
+        
+        PingPanelEvents[#PingPanelEvents+1] = PingFrame.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                dragStart = input.Position
+                startPos = PingFrame.Position
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        dragging = false
+                    end
                 end)
-                
-                local label = CreatePingPanel()
-                if label then
-                    label.Visible = true
-                    label.Text = string.format("Ping: %.0f ms", ping)
-                end
-            else
-                local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-                local screenGui = playerGui and playerGui:FindFirstChild("PingPanel")
-                if screenGui then
-                    screenGui:Destroy()
+            end
+        end)
+        
+        PingPanelEvents[#PingPanelEvents+1] = PingFrame.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                dragInput = input
+            end
+        end)
+        
+        PingPanelEvents[#PingPanelEvents+1] = UserInputService.InputChanged:Connect(function(input)
+            if input == dragInput and dragging then
+                local delta = input.Position - dragStart
+                PingFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            end
+        end)
+        
+        PingPanelEvents[#PingPanelEvents+1] = RunService.RenderStepped:Connect(function()
+            local ok, value = pcall(function()
+                return Stats.Network.ServerStatsItem["Data Ping"]:GetValue()
+            end)
+            if ok then
+                local ping = math.floor(value)
+                PingLabel.Text = "Ping: " .. ping .. " ms"
+                if ping < 80 then
+                    PingLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+                elseif ping <= 120 then
+                    PingLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+                else
+                    PingLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
                 end
             end
+        end)
+    end
+    
+    local function HidePingPanel()
+        for _, conn in pairs(PingPanelEvents) do
+            if conn and conn.Disconnect then conn:Disconnect() end
         end
-    end)
+        PingPanelEvents = {}
+        if PingPanelGui then PingPanelGui:Destroy() PingPanelGui = nil end
+        dragging = false
+        dragInput = nil
+        dragStart = nil
+        startPos = nil
+    end
 
     -- No Fishing Animation Logic
     local AnimationModule = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Animations")
@@ -989,7 +1060,7 @@
 
 
     local UtilityTab = Window:Tab({ Title = "Teleport", Icon = "lucide:map-pin" })
-    local BlatantTab = Window:Tab({ Title = "Fishing", Icon = "lucide:fishing-hook" })
+    local BlatantTab = Window:Tab({ Title = "Fishing", Icon = "lucide:fish" })
     local WebhookTab = Window:Tab({ Title = "Webhook", Icon = "lucide:message-square" })
     local MiscTab = Window:Tab({ Title = "Misc", Icon = "lucide:settings" })
 
@@ -1177,6 +1248,45 @@
                 end)
             else
                 if walkOnWaterPart then walkOnWaterPart:Destroy() walkOnWaterPart = nil end
+            end
+        end
+    })
+
+
+    local WeatherSection = BlatantTab:Section({ Title = sTitle("Auto Weather"), Icon = "lucide:cloud-sun" })
+
+    WeatherSection:Dropdown({
+        Title = sBtn("Select Weather"),
+        Content = sDesc("Select weather types to automatically purchase."),
+        Multi = true,
+        Values = {"Wind", "Cloudy", "Snow", "Storm", "Radiant"},
+        Callback = function(v)
+            state.SelectedWeather = v
+        end
+    })
+
+    WeatherSection:Toggle({
+        Title = sBtn("Auto Purchase Weather"),
+        Content = sDesc("Automatically purchases selected weather every 10 minutes."),
+        Callback = function(v)
+            state.AutoWeather = v
+            if v then
+                NotifyInfo("Auto Weather Enabled", "Will purchase selected weather every 10 minutes.")
+                task.spawn(function()
+                    while state.AutoWeather do
+                        if #state.SelectedWeather > 0 then
+                            for _, weather in pairs(state.SelectedWeather) do
+                                pcall(function()
+                                    weatherRemote:InvokeServer(weather)
+                                end)
+                                task.wait(1) -- Small delay between purchases
+                            end
+                        end
+                        task.wait(600) -- 10 minutes
+                    end
+                end)
+            else
+                NotifyInfo("Auto Weather Disabled", "")
             end
         end
     })
@@ -1387,7 +1497,14 @@
     SupportSection:Toggle({
         Title = sBtn("Show Real Ping Panel"),
         Content = sDesc("Displays a real-time ping indicator."),
-        Callback = function(v) state.ShowPing = v end
+        Callback = function(v)
+            state.ShowPing = v
+            if v then
+                ShowPingPanel()
+            else
+                HidePingPanel()
+            end
+        end
     })
 
     SupportSection:Toggle({
@@ -1544,6 +1661,4 @@
             end
         end
     })
-
-
 

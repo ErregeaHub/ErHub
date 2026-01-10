@@ -555,12 +555,14 @@
         end
     end
 
-    -- Anti-AFK Logic
     local VirtualUser = game:GetService("VirtualUser")
     LocalPlayer.Idled:Connect(function()
         if state.AntiAfk then
-            VirtualUser:CaptureController()
-            VirtualUser:ClickButton2(Vector2.new())
+            pcall(function()
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton2(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+                warn("ErHub: Anti-AFK Triggered to prevent kick.")
+            end)
         end
     end)
 
@@ -1557,8 +1559,8 @@
     })
 
     ServerSection:Toggle({
-        Title = sBtn("Anti-Afk"),
-        Content = sDesc("Prevents being kicked for inactivity."),
+        Title = sBtn("Anti AFK"),
+        Content = sDesc("Integrates with Roblox AFK system to prevent kick."),
         Callback = function(v) state.AntiAfk = v end
     })
 
@@ -1661,4 +1663,3 @@
             end
         end
     })
-
