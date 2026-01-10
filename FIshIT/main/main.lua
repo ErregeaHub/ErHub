@@ -29,7 +29,7 @@
         ReduceMap = false,
         -- Server Features
         AutoReconnect = true,
-        AntiAfk = false,
+        AntiAfk = true,
         -- Fishing Support
         AutoEquipRod = false,
         WalkOnWater = false,
