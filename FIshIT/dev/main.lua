@@ -624,36 +624,37 @@
         end
         
         local tierColors = {
-            ["1"] = 0x808080, -- Common
+            ["1"] = 0xeeeeee, -- Common
             ["2"] = 0x00ff00, -- Uncommon
-            ["3"] = 0x0000ff, -- Rare
+            ["3"] = 0x0081ff, -- Rare
             ["4"] = 0xa335ee, -- Epic
-            ["5"] = 0xff8000, -- Legendary
+            ["5"] = 0xffff00, -- Legendary
             ["6"] = 0xff0000, -- Mythic
-            ["7"] = 0xffff00, -- Secret
+            ["7"] = 0x00ffbe, -- Secret
         }
 
+        local isSecret = (tierStr == "7")
         local data = {
-            ["username"] = "ErHub V2 Notifier",
-            ["avatar_url"] = "https://i.imgur.com/8Q9H4YV.png",
+            ["username"] = "ErHub Notification!",
+            ["avatar_url"] = "https://i.imgur.com/V1gmBJQ.jpg",
             ["embeds"] = {{
-                ["title"] = "🐟 New Fish Caught!",
-                ["description"] = string.format("Congratulations! You just caught a **%s**!", fishName),
+                ["title"] = "ErHub Webhook | Fish Caught",
+                ["description"] = string.format("Congratulations!! **%s** You have obtained a new **%s** fish!", LocalPlayer.Name, isSecret and "Secret" or "Rare"),
                 ["color"] = tierColors[tierStr] or 0x00ff00,
                 ["fields"] = {
                     {
-                        ["name"] = "Tier",
-                        ["value"] = "Tier " .. tierStr,
-                        ["inline"] = true
+                        ["name"] = "I | Fish Name :",
+                        ["value"] = "```\n> " .. fishName .. "\n```",
+                        ["inline"] = false
                     },
                     {
-                        ["name"] = "Player",
-                        ["value"] = LocalPlayer.Name,
-                        ["inline"] = true
+                        ["name"] = "I | Fish Tier :",
+                        ["value"] = "```\n> " .. (isSecret and "Secret" or "Tier " .. tierStr) .. "\n```",
+                        ["inline"] = false
                     }
                 },
                 ["footer"] = {
-                    ["text"] = "ErHub• " .. os.date("%X")
+                    ["text"] = "ErHub • " .. os.date("%X")
                 },
                 ["timestamp"] = DateTime.now():ToIsoDate()
             }}
@@ -1269,8 +1270,8 @@
         Title = sBtn("Select Tiers"),
         Content = sDesc("Select which fish tiers should trigger notifications."),
         Multi = true,
-        Values = {sBtn("Tier 1"), sBtn("Tier 2"), sBtn("Tier 3"), sBtn("Tier 4"), sBtn("Tier 5"), sBtn("Tier 6"), sBtn("Tier 7")},
-        Default = {sBtn("Tier 1"), sBtn("Tier 2"), sBtn("Tier 3"), sBtn("Tier 4"), sBtn("Tier 5"), sBtn("Tier 6"), sBtn("Tier 7")},
+        Values = {sBtn("common"), sBtn("uncommon"), sBtn("rare"), sBtn("epic"), sBtn("legendary"), sBtn("mythic"), sBtn("secret")},
+        Default = {sBtn("common"), sBtn("uncommon"), sBtn("rare"), sBtn("epic"), sBtn("legendary"), sBtn("mythic"), sBtn("secret")},
         Callback = function(v)
             -- Reset all to false first
             for i = 1, 7 do
