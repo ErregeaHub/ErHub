@@ -653,7 +653,7 @@
                     }
                 },
                 ["footer"] = {
-                    ["text"] = "ErHub V2 • " .. os.date("%X")
+                    ["text"] = "ErHub• " .. os.date("%X")
                 },
                 ["timestamp"] = DateTime.now():ToIsoDate()
             }}
@@ -728,9 +728,6 @@
                                     local name = itemData.Data.Name or "Unknown Fish"
                                     local tier = itemData.Data.Tier or 1
                                     
-                                    -- Console feedback
-                                    print(string.format("[Webhook] New Catch Detected: %s (Tier %s)", name, tostring(tier)))
-                                    
                                     SendWebhook(name, tostring(tier))
                                 end
                             end
@@ -794,8 +791,6 @@
                         
                         -- Only send if it looks like a fish catch (names are usually capitalized or have multiple words)
                         if #fishName > 1 then
-                            -- Console feedback
-                            print(string.format("[Webhook] New Catch Detected: %s (Tier %s)", fishName, tostring(tierStr)))
                             SendWebhook(fishName, tierStr)
                         end
                     end
@@ -1205,11 +1200,13 @@
 
     MovementSection:Slider({
         Title = sBtn("WalkSpeed"),
-        Content = sDesc("Adjust your movement speed (Default: 16)"),
+        Desc = sDesc("Adjust your movement speed (Default: 16)"),
         Step = 1,
-        Min = 16,
-        Max = 200,
-        Default = 16,
+        Value = {
+            Min = 16,
+            Max = 200,
+            Default = 16,
+        },
         Callback = function(v)
             state.WalkSpeed = v
         end
@@ -1217,11 +1214,13 @@
 
     MovementSection:Slider({
         Title = sBtn("JumpPower"),
-        Content = sDesc("Adjust your jump height (Default: 50)"),
+        Desc = sDesc("Adjust your jump height (Default: 50)"),
         Step = 1,
-        Min = 50,
-        Max = 300,
-        Default = 50,
+        Value = {
+            Min = 50,
+            Max = 300,
+            Default = 50,
+        },
         Callback = function(v)
             state.JumpPower = v
         end
