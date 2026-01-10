@@ -186,9 +186,6 @@ local net = ReplicatedStorage:WaitForChild("Packages")
 local Notifs = { WBN = true, FavBlockNotif = true, FishBlockNotif = true, DelayBlockNotif = true, AFKBN = true, APIBN = true }
 local state = { AutoFavourite = false, AutoSell = false, AutoTrade = false, AutoAcceptTrade = false, AutoFishing = false, AutoFishingToTrade = false }
 
-local rodRemote = net:WaitForChild("RF/ChargeFishingRod")
-local miniGameRemote = net:WaitForChild("RF/RequestFishingMinigameStarted")
-local finishRemote = net:WaitForChild("RE/FishingCompleted")
 local equipToolRemote = net:WaitForChild("RE/EquipToolFromHotbar")
 local updateAutoFishingRemote = net:WaitForChild("RF/UpdateAutoFishingState")
 
@@ -409,6 +406,26 @@ task.spawn(function()
     end)
 end)
 
+-- Peta statis Tier Display Name ke Nilai Internal Tier (Angka)
+local TIER_MAPPING = {
+    ["Secret"] = 7, 
+    ["Mythic"] = 6, 
+    ["Legendary"] = 5,
+    ["Epic"] = 4,
+    ["Rare"] = 3,
+    ["Uncommon"] = 2,
+    ["Common"] = 1,
+}
+
+-- List untuk Dropdown (Diurutkan dari tertinggi ke terendah)
+local tierDisplayNames = {}
+for name in pairs(TIER_MAPPING) do table.insert(tierDisplayNames, name) end
+table.sort(tierDisplayNames, function(a, b)
+    local numA = TIER_MAPPING[a] or 0
+    local numB = TIER_MAPPING[b] or 0
+    return numA > numB
+end)
+
 local function findUUIDByTier(targetTier)
     if not DataReplion or not ItemUtility then return nil end
 
@@ -451,21 +468,8 @@ local function hasTier7Fish()
     return false
 end
 
-local function AutoFishingLoop()
-    while true do
-        if state.AutoFishing then
-            pcall(function()
-                rodRemote:InvokeServer(100, 1)
-                task.wait(0.5)
-                miniGameRemote:InvokeServer()
-                task.wait(2)
-                finishRemote:FireServer(true)
-            end)
-        end
-        task.wait(1)
-    end
-end
-task.spawn(AutoFishingLoop)
+
+
 
 
 -------------------------------------------
@@ -484,7 +488,7 @@ AutoFishingSection:Toggle({
 })
 
 AutoFishingSection:Toggle({
-    Title = "Full Auto",
+    Title = "Full Auto (Tier 7)",
     Value = false,
     Callback = function(value)
         state.AutoFishingToTrade = value
@@ -520,7 +524,7 @@ task.spawn(function()
                         
                         if success then
                             NotifySuccess("Trade Success", "Tier 7 fish sent!")
-                            task.wait(2)
+                            task.wait(6) -- Sync with tradesystem.lua safe wait
                             TeleportToTreasureRoom()
                             task.wait(2)
                             equipFishingToolFromHotbar(1)
@@ -528,6 +532,7 @@ task.spawn(function()
                             SetAutoFishingState(true)
                         else
                             NotifyError("Trade Failed", tostring(err))
+                            task.wait(10) -- Sync with tradesystem.lua error wait
                         end
                     end
                 else
@@ -538,6 +543,95 @@ task.spawn(function()
         task.wait(5)
     end
 end)
+
+-------------------------------------------
+----- =======[ MANUAL TRADE SYSTEM ] =======
+-------------------------------------------
+
+local ManualTradeSection = UtilityTab:Section({ Title = "Manual Trade", Icon = "box" })
+local manualSelectedPlayer = nil
+local manualSelectedTierValue = nil
+
+ManualTradeSection:Dropdown({
+    Title = "Pilih Player",
+    Values = getPlayers(),
+    Callback = function(v) manualSelectedPlayer = v end
+})
+
+ManualTradeSection:Button({
+    Title = "Refresh Player List",
+    Callback = function() ManualTradeSection:UpdateDropdown("Pilih Player", getPlayers()) end
+})
+
+ManualTradeSection:Dropdown({
+    Title = "Pilih Tier Ikan",
+    Values = tierDisplayNames,
+    Callback = function(v)
+        manualSelectedTierValue = TIER_MAPPING[trim(v)]
+        if manualSelectedTierValue then
+            NotifyInfo("Tier Dipilih", "Siap kirim Tier: " .. v)
+        end
+    end
+})
+
+ManualTradeSection:Toggle({
+    Title = "Start Manual Trade",
+    Callback = function(value)
+        state.AutoTrade = value
+        if value then
+            if not manualSelectedPlayer or not manualSelectedTierValue then
+                NotifyError("Error", "Pilih Player dan Tier dulu!")
+                state.AutoTrade = false
+                ManualTradeSection:UpdateToggle("Start Manual Trade", false)
+                return
+            end
+            
+            NotifyInfo("Manual Trade Started", "Sending Tier " .. manualSelectedTierValue .. " fish to " .. manualSelectedPlayer)
+            
+            task.spawn(function()
+                while state.AutoTrade do
+                    local uuid, fishName = findUUIDByTier(manualSelectedTierValue)
+                    if not uuid then
+                        NotifySuccess("Done", "All Tier " .. manualSelectedTierValue .. " fish sent!")
+                        state.AutoTrade = false
+                        ManualTradeSection:UpdateToggle("Start Manual Trade", false)
+                        break
+                    end
+                    
+                    local target = Players:FindFirstChild(manualSelectedPlayer)
+                    if not target then
+                        NotifyError("Error", "Player left!")
+                        state.AutoTrade = false
+                        ManualTradeSection:UpdateToggle("Start Manual Trade", false)
+                        break
+                    end
+                    
+                    NotifyInfo("Trading", "Sending " .. (fishName or "fish") .. "...")
+                    local s, r = pcall(Remote_InitiateTrade.InvokeServer, Remote_InitiateTrade, target.UserId, uuid)
+                    
+                    if not s then
+                        NotifyError("Failed", tostring(r))
+                        task.wait(10)
+                    else
+                        NotifySuccess("Success", "Sent! Waiting 6s...")
+                        task.wait(6)
+                    end
+                end
+            end)
+        end
+    end
+})
+
+ManualTradeSection:Button({
+    Title = "Refresh Backpack",
+    Callback = function()
+        if initializeDataModules() then
+            NotifySuccess("Success", "Backpack refreshed")
+        else
+            NotifyError("Failed", "Refresh failed")
+        end
+    end
+})
 
 -------------------------------------------
 ----- =======[ UTILITY TAB ] =======
