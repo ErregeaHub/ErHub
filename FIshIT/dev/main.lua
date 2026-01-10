@@ -130,7 +130,6 @@
         
         -- Generate proxy list
         if originalUrl:find("discord.com") or originalUrl:find("discordapp.com") then
-            table.insert(urlsToTry, (originalUrl:gsub("discord.com", "hooks.hyra.io"):gsub("discordapp.com", "hooks.hyra.io")))
             table.insert(urlsToTry, (originalUrl:gsub("discord.com", "webhook.lewisakura.moe"):gsub("discordapp.com", "webhook.lewisakura.moe")))
             table.insert(urlsToTry, originalUrl) -- Try original last
         else
