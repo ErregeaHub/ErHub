@@ -452,21 +452,27 @@ end
 -- Function to get unique fish names in inventory for a specific tier
 local function getFishNamesByTier(targetTier)
     if not DataReplion or not ItemUtility then return {} end
+    
     local inventoryData = SafeGet(DataReplion, "Inventory") 
-    local items = (inventoryData and inventoryData.Items) or SafeGet(DataReplion, "Items")
-    if not items or type(items) ~= "table" then return {} end
+    local items = (inventoryData and inventoryData.Items) or (inventoryData and inventoryData.Inventory) or SafeGet(DataReplion, "Items")
+    
+    if not items or type(items) ~= "table" then 
+        -- Fallback check for different data structures
+        items = SafeGet(DataReplion, "Inventory")
+        if type(items) ~= "table" then return {} end
+    end
 
     local names = {}
     local seen = {}
     local targetTierString = tostring(targetTier)
 
-    for _, item in ipairs(items) do
+    for _, item in pairs(items) do -- Use pairs to be safe with non-sequential tables
         if item.Id then
             local base = ItemUtility:GetItemData(item.Id)
             if base and base.Data and base.Data.Type == "Fish" then
                 if tostring(base.Data.Tier) == targetTierString then
                     local name = base.Data.Name
-                    if not seen[name] then
+                    if name and not seen[name] then
                         table.insert(names, name)
                         seen[name] = true
                     end
@@ -696,12 +702,20 @@ ManualTradeSection:Button({
     Title = "Refresh Backpack",
     Callback = function()
         if initializeDataModules() then
+            NotifyInfo("Refreshing", "Mengambil data inventory terbaru...")
+            task.wait(0.5) -- Give time for data to sync
+            
             NotifySuccess("Success", "Backpack refreshed")
             -- Auto-update fish names dropdown if a tier is already selected
             if manualSelectedTierValue then
                 local fishNames = getFishNamesByTier(manualSelectedTierValue)
                 ManualTradeSection:UpdateDropdown("Pilih Nama Ikan", fishNames)
-                NotifyInfo("Dropdown Updated", "Daftar ikan telah diperbarui untuk Tier yang dipilih.")
+                
+                if #fishNames > 0 then
+                    NotifyInfo("Dropdown Updated", "Daftar ikan telah diperbarui.")
+                else
+                    NotifyWarning("No Fish Found", "Tidak ada ikan untuk Tier ini di inventory.")
+                end
             end
         else
             NotifyError("Failed", "Refresh failed")
