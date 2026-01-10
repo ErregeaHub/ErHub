@@ -38,6 +38,9 @@
         Fullbright = false,
         WalkSpeed = 16,
         JumpPower = 50,
+        -- Weather Features
+        AutoWeather = false,
+        SelectedWeather = {},
     }
 
     -------------------------------------------
@@ -54,6 +57,7 @@
     local ItemUtility
     local DataReplion
     local sellRemote = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_net@0.2.0"):WaitForChild("net"):WaitForChild("RF/SellAllItems")
+    local weatherRemote = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_net@0.2.0"):WaitForChild("net"):WaitForChild("RF/PurchaseWeatherEvent")
 
     -------------------------------------------
     ----- =======[ MOBILE SCALING ] =======
@@ -989,7 +993,7 @@
 
 
     local UtilityTab = Window:Tab({ Title = "Teleport", Icon = "lucide:map-pin" })
-    local BlatantTab = Window:Tab({ Title = "Fishing", Icon = "lucide:fishing-hook" })
+    local BlatantTab = Window:Tab({ Title = "Fishing", Icon = "lucide:fish" })
     local WebhookTab = Window:Tab({ Title = "Webhook", Icon = "lucide:message-square" })
     local MiscTab = Window:Tab({ Title = "Misc", Icon = "lucide:settings" })
 
@@ -1177,6 +1181,45 @@
                 end)
             else
                 if walkOnWaterPart then walkOnWaterPart:Destroy() walkOnWaterPart = nil end
+            end
+        end
+    })
+
+
+    local WeatherSection = BlatantTab:Section({ Title = sTitle("Auto Weather"), Icon = "lucide:cloud-sun" })
+
+    WeatherSection:Dropdown({
+        Title = sBtn("Select Weather"),
+        Content = sDesc("Select weather types to automatically purchase."),
+        Multi = true,
+        Values = {"Wind", "Cloudy", "Snow", "Storm", "Radiant"},
+        Callback = function(v)
+            state.SelectedWeather = v
+        end
+    })
+
+    WeatherSection:Toggle({
+        Title = sBtn("Auto Purchase Weather"),
+        Content = sDesc("Automatically purchases selected weather every 10 minutes."),
+        Callback = function(v)
+            state.AutoWeather = v
+            if v then
+                NotifyInfo("Auto Weather Enabled", "Will purchase selected weather every 10 minutes.")
+                task.spawn(function()
+                    while state.AutoWeather do
+                        if #state.SelectedWeather > 0 then
+                            for _, weather in pairs(state.SelectedWeather) do
+                                pcall(function()
+                                    weatherRemote:InvokeServer(weather)
+                                end)
+                                task.wait(1) -- Small delay between purchases
+                            end
+                        end
+                        task.wait(600) -- 10 minutes
+                    end
+                end)
+            else
+                NotifyInfo("Auto Weather Disabled", "")
             end
         end
     })
