@@ -517,22 +517,30 @@ task.spawn(function()
                     TeleportToPlayer("ruptor02")
                     task.wait(5)
                     
-                    local uuid, fishName = findUUIDByTier(7)
-                    if uuid and Remote_InitiateTrade then
-                        NotifyInfo("Trading", "Initiating trade with ruptor02...")
-                        local success, err = pcall(Remote_InitiateTrade.InvokeServer, Remote_InitiateTrade, targetPlayer.UserId, uuid)
-                        
-                        if success then
-                            NotifySuccess("Trade Success", "Tier 7 fish sent!")
-                            task.wait(6) -- Sync with tradesystem.lua safe wait
-                            TeleportToTreasureRoom()
-                            task.wait(2)
-                            equipFishingToolFromHotbar(1)
-                            state.AutoFishing = true
-                            SetAutoFishingState(true)
-                        else
-                            NotifyError("Trade Failed", tostring(err))
-                            task.wait(10) -- Sync with tradesystem.lua error wait
+                    if state.AutoFishingToTrade then
+                        local uuid, fishName = findUUIDByTier(7)
+                        if uuid and Remote_InitiateTrade then
+                            NotifyInfo("Trading", "Initiating trade with ruptor02...")
+                            local success, err = pcall(Remote_InitiateTrade.InvokeServer, Remote_InitiateTrade, targetPlayer.UserId, uuid)
+                            
+                            if success then
+                                NotifySuccess("Trade Success", "Tier 7 fish sent!")
+                                task.wait(6)
+                                
+                                if state.AutoFishingToTrade then
+                                    TeleportToTreasureRoom()
+                                    task.wait(2)
+                                    
+                                    if state.AutoFishingToTrade then
+                                        equipFishingToolFromHotbar(1)
+                                        state.AutoFishing = true
+                                        SetAutoFishingState(true)
+                                    end
+                                end
+                            else
+                                NotifyError("Trade Failed", tostring(err))
+                                task.wait(10)
+                            end
                         end
                     end
                 else
@@ -626,6 +634,9 @@ ManualTradeSection:Button({
     Title = "Refresh Backpack",
     Callback = function()
         if initializeDataModules() then
+            NotifyInfo("Refreshing", "Mengambil data inventory terbaru...")
+            task.wait(0.5) -- Give time for data to sync
+            
             NotifySuccess("Success", "Backpack refreshed")
         else
             NotifyError("Failed", "Refresh failed")

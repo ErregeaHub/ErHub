@@ -589,9 +589,20 @@
 
     task.spawn(AutoReconnect)
 
+    -- Webhook State & Cache
+    local lastSentFish = {name = "", tier = "", time = 0}
+    local knownUUIDs = {}
+
     local function SendWebhook(fishName, tier)
         if not state.WebhookEnabled or state.WebhookURL == "" then return end
         
+        -- Duplicate check (avoid UI and Inventory monitors triggering at the same time)
+        local currentTime = tick()
+        if lastSentFish.name == fishName and lastSentFish.tier == tostring(tier) and (currentTime - lastSentFish.time) < 3 then
+            return
+        end
+        lastSentFish = {name = fishName, tier = tostring(tier), time = currentTime}
+
         -- Filter out common non-fish notifications
         local lowerName = fishName:lower()
         local filters = {"inventory full", "level up", "quest complete", "new area", "achievement"}
@@ -603,8 +614,14 @@
         local tierStr = tostring(tier)
         if not state.WebhookTiers[tierStr] then return end
         
-        -- Use a cleaner Discord proxy if possible, or direct
-        local url = state.WebhookURL:gsub("discord.com", "webhook.lewisakura.moe")
+        -- Robust Discord proxy handling
+        local url = state.WebhookURL
+        if url:find("discord.com/api/webhooks") then
+            url = url:gsub("discord.com", "webhook.lewisakura.moe")
+        elseif not url:find("webhook.lewisakura.moe") and not url:find("discordapp.com") then
+            -- If it's not a discord or proxy URL, warn the user
+            warn("Webhook URL might be invalid: " .. url)
+        end
         
         local tierColors = {
             ["1"] = 0x808080, -- Common
@@ -669,6 +686,62 @@
         end)
     end
 
+    -- Inventory Monitoring System (Based on tradesystem.lua logic)
+    task.spawn(function()
+        -- Wait for data modules to load
+        while not DataReplion or not ItemUtility do task.wait(1) end
+        
+        local function SafeGet(replion, key)
+            local success, result = pcall(replion.Get, replion, key)
+            return success and result or nil
+        end
+
+        local function getItems()
+            local inventoryData = SafeGet(DataReplion, "Inventory") 
+            local items = nil
+            if inventoryData and type(inventoryData) == "table" then items = inventoryData.Items end
+            if not items then items = SafeGet(DataReplion, "Items") end -- Fallback
+            return items
+        end
+
+        -- Initial scan to populate knownUUIDs
+        local initialItems = getItems()
+        if initialItems and type(initialItems) == "table" then
+            for _, item in pairs(initialItems) do
+                if item.UUID then knownUUIDs[item.UUID] = true end
+            end
+        end
+
+        -- Monitor loop
+        while true do
+            if state.WebhookEnabled then
+                local currentItems = getItems()
+                if currentItems and type(currentItems) == "table" then
+                    for _, item in pairs(currentItems) do
+                        if item.UUID and not knownUUIDs[item.UUID] then
+                            knownUUIDs[item.UUID] = true
+                            
+                            -- New item detected!
+                            if item.Id then
+                                local itemData = ItemUtility:GetItemData(item.Id)
+                                if itemData and itemData.Data and itemData.Data.Type == "Fish" then
+                                    local name = itemData.Data.Name or "Unknown Fish"
+                                    local tier = itemData.Data.Tier or 1
+                                    
+                                    -- Console feedback
+                                    print(string.format("[Webhook] New Catch Detected: %s (Tier %s)", name, tostring(tier)))
+                                    
+                                    SendWebhook(name, tostring(tier))
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            task.wait(1) -- Using a 1s interval for faster detection
+        end
+    end)
+
     -- Hook FishingCompleted to detect fish catches directly from the server response
     -- This is a secondary detection method in case the UI monitor fails
     local oldFinishRemote
@@ -721,6 +794,8 @@
                         
                         -- Only send if it looks like a fish catch (names are usually capitalized or have multiple words)
                         if #fishName > 1 then
+                            -- Console feedback
+                            print(string.format("[Webhook] New Catch Detected: %s (Tier %s)", fishName, tostring(tierStr)))
                             SendWebhook(fishName, tierStr)
                         end
                     end
@@ -1345,8 +1420,10 @@
                                 if state.WebhookEnabled then
                                     handleNotification(child)
                                 end
-                                task.wait(0.5) -- Give it a bit more time for webhook to process
-                                child:Destroy()
+                                task.wait(1.5) -- Give it more time for webhook to process (wait for text to populate)
+                                if child and child.Parent then
+                                    child:Destroy()
+                                end
                             end
                         end)
                     end
