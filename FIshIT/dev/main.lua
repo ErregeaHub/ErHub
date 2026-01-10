@@ -592,87 +592,166 @@
     local function SendWebhook(fishName, tier)
         if not state.WebhookEnabled or state.WebhookURL == "" then return end
         
+        -- Filter out common non-fish notifications
+        local lowerName = fishName:lower()
+        local filters = {"inventory full", "level up", "quest complete", "new area", "achievement"}
+        for _, filter in pairs(filters) do
+            if lowerName:find(filter) then return end
+        end
+
         -- Check if tier is enabled
         local tierStr = tostring(tier)
         if not state.WebhookTiers[tierStr] then return end
         
+        -- Use a cleaner Discord proxy if possible, or direct
         local url = state.WebhookURL:gsub("discord.com", "webhook.lewisakura.moe")
+        
+        local tierColors = {
+            ["1"] = 0x808080, -- Common
+            ["2"] = 0x00ff00, -- Uncommon
+            ["3"] = 0x0000ff, -- Rare
+            ["4"] = 0xa335ee, -- Epic
+            ["5"] = 0xff8000, -- Legendary
+            ["6"] = 0xff0000, -- Mythic
+            ["7"] = 0xffff00, -- Secret
+        }
+
         local data = {
+            ["username"] = "ErHub V2 Notifier",
+            ["avatar_url"] = "https://i.imgur.com/8Q9H4YV.png",
             ["embeds"] = {{
-                ["title"] = "🐟 Fish Caught!",
-                ["description"] = string.format("You just caught a **%s**!", fishName),
-                ["color"] = 0x00ff00,
+                ["title"] = "🐟 New Fish Caught!",
+                ["description"] = string.format("Congratulations! You just caught a **%s**!", fishName),
+                ["color"] = tierColors[tierStr] or 0x00ff00,
                 ["fields"] = {
                     {
                         ["name"] = "Tier",
-                        ["value"] = tostring(tier) or "Unknown",
+                        ["value"] = "Tier " .. tierStr,
+                        ["inline"] = true
+                    },
+                    {
+                        ["name"] = "Player",
+                        ["value"] = LocalPlayer.Name,
                         ["inline"] = true
                     }
                 },
                 ["footer"] = {
                     ["text"] = "ErHub V2 • " .. os.date("%X")
-                }
+                },
+                ["timestamp"] = DateTime.now():ToIsoDate()
             }}
         }
         
-        local success, err = pcall(function()
-            local json = game:GetService("HttpService"):JSONEncode(data)
-            game:HttpPost(url, json, "application/json")
-        end)
-        
-        if not success then
-            warn("Webhook Error: " .. tostring(err))
-        end
-    end
-
-    -- Webhook Notification Monitor
-    task.spawn(function()
-        local function setupWebhookMonitor(disp)
-            disp.ChildAdded:Connect(function(child)
-                if state.WebhookEnabled and child:IsA("Frame") then
-                    task.spawn(function()
-                        local main = child:WaitForChild("Main", 5)
-                        if main then
-                            local title = main:WaitForChild("Title", 5)
-                            local amount = main:WaitForChild("Amount", 5)
-                            
-                            if title and title:IsA("TextLabel") then
-                                local fishName = title.Text
-                                local tierStr = "1"
-                                
-                                if amount and amount:IsA("TextLabel") then
-                                    tierStr = amount.Text:match("Tier%s*(%d+)") or "1"
-                                end
-                                
-                                SendWebhook(fishName, tierStr)
-                            end
-                        end
-                    end)
+        task.spawn(function()
+            local success, err = pcall(function()
+                local json = game:GetService("HttpService"):JSONEncode(data)
+                local request = (syn and syn.request) or (http and http.request) or http_request or (Fluxus and Fluxus.request) or request
+                
+                if request then
+                    local response = request({
+                        Url = url,
+                        Method = "POST",
+                        Headers = { ["Content-Type"] = "application/json" },
+                        Body = json
+                    })
+                    if not response.Success then
+                        warn("Webhook failed with status: " .. tostring(response.StatusCode))
+                    end
+                else
+                    -- Fallback to HttpPost if no custom request function
+                    game:HttpPost(url, json, "application/json")
                 end
             end)
+            
+            if not success then
+                warn("Webhook Error: " .. tostring(err))
+            end
+        end)
+    end
+
+    -- Hook FishingCompleted to detect fish catches directly from the server response
+    -- This is a secondary detection method in case the UI monitor fails
+    local oldFinishRemote
+    oldFinishRemote = hookmetamethod(finishRemote, "__index", function(self, key)
+        if key == "FireServer" and not checkcaller() then
+            return function(self, ...)
+                local args = {...}
+                -- If we are firing the remote, it means we caught something or finished the minigame
+                -- We can try to wait for a potential notification to appear
+                return oldFinishRemote(self, "FireServer")(self, unpack(args))
+            end
         end
+        return oldFinishRemote(self, key)
+    end)
 
-        local function findAndMonitor()
-            local playerGui = Player:WaitForChild("PlayerGui", 10)
-            if not playerGui then return end
+    -- Hook the client event that handles notifications if possible
+    -- Many games use a specific RemoteEvent for notifications
+    -- For now, we rely on the UI monitor which is already improved.
 
-            local function onGuiAdded(gui)
-                if gui.Name == "Small Notification" then
-                    local display = gui:WaitForChild("Display", 5) or gui:WaitForChild("display", 5)
-                    if display then
-                        setupWebhookMonitor(display)
+    -- Monitor notifications for catches (More reliable than hooking the remote since we can't easily see the return of FireServer)
+    task.spawn(function()
+        local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+        
+        local function handleNotification(child)
+        if not state.WebhookEnabled then return end
+        
+        -- Use task.spawn to not block the main monitor
+        task.spawn(function()
+            -- Wait a bit for children to be added
+            local main = child:WaitForChild("Main", 2) or child:WaitForChild("main", 2)
+            if main then
+                local title = main:WaitForChild("Title", 2) or main:WaitForChild("title", 2)
+                local amount = main:WaitForChild("Amount", 2) or main:WaitForChild("amount", 2)
+                
+                if title and title:IsA("TextLabel") then
+                    -- Wait for text to be populated if it's empty
+                    local timeout = 0
+                    while title.Text == "" and timeout < 10 do
+                        task.wait(0.1)
+                        timeout = timeout + 1
+                    end
+                    
+                    local fishName = title.Text
+                    if fishName ~= "" then
+                        local tierStr = "1"
+                        if amount and amount:IsA("TextLabel") then
+                            -- Extract tier from amount text like "Tier 5" or "Tier: 5"
+                            tierStr = amount.Text:match("Tier%s*[:]?%s*(%d+)") or "1"
+                        end
+                        
+                        -- Only send if it looks like a fish catch (names are usually capitalized or have multiple words)
+                        if #fishName > 1 then
+                            SendWebhook(fishName, tierStr)
+                        end
                     end
                 end
             end
+        end)
+    end
 
-            playerGui.ChildAdded:Connect(onGuiAdded)
-            local existing = playerGui:FindFirstChild("Small Notification")
-            if existing then
-                onGuiAdded(existing)
+        local function setupMonitor()
+            local smallNotif = playerGui:WaitForChild("Small Notification", 10)
+            if smallNotif then
+                local display = smallNotif:WaitForChild("Display", 5) or smallNotif:WaitForChild("display", 5)
+                if display then
+                    display.ChildAdded:Connect(handleNotification)
+                    -- Check existing
+                    for _, child in pairs(display:GetChildren()) do
+                        if child:IsA("Frame") then
+                            handleNotification(child)
+                        end
+                    end
+                end
             end
         end
 
-        findAndMonitor()
+        setupMonitor()
+        -- Re-setup if GUI resets
+        playerGui.ChildAdded:Connect(function(child)
+            if child.Name == "Small Notification" then
+                setupMonitor()
+            end
+        end)
     end)
 
     -------------------------------------------
@@ -1262,7 +1341,11 @@
                     if not displayMonitor then
                         displayMonitor = disp.ChildAdded:Connect(function(child)
                             if _G.HideNotifications and not child:IsA("UIScale") then
-                                task.wait()
+                                -- Ensure webhook still catches it before destruction
+                                if state.WebhookEnabled then
+                                    handleNotification(child)
+                                end
+                                task.wait(0.5) -- Give it a bit more time for webhook to process
                                 child:Destroy()
                             end
                         end)
