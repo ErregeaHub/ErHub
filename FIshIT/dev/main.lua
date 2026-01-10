@@ -543,17 +543,39 @@
     local Player = Players.LocalPlayer
 
     local TeleportService = game:GetService("TeleportService")
+    local GuiService = game:GetService("GuiService")
     local PlaceId = game.PlaceId
-
-    local function AutoReconnect()
-        while task.wait(5) do
-            if state.AutoReconnect then
-                if not Players.LocalPlayer or not Players.LocalPlayer:IsDescendantOf(game) then
-                    TeleportService:Teleport(PlaceId)
-                end
-            end
+    local JobId = game.JobId
+    local autoReconnectInProgress = false
+    
+    local function TryRejoinServer()
+        if autoReconnectInProgress or not state.AutoReconnect then
+            return
+        end
+        autoReconnectInProgress = true
+        
+        warn("ErHub: Detected disconnect, attempting to rejoin current server...")
+        task.wait(5)
+        
+        local successSameServer = pcall(function()
+            TeleportService:TeleportToPlaceInstance(PlaceId, JobId, Players.LocalPlayer)
+        end)
+        
+        if not successSameServer then
+            warn("ErHub: Same server rejoin failed, teleporting to any server...")
+            pcall(function()
+                TeleportService:Teleport(PlaceId, Players.LocalPlayer)
+            end)
         end
     end
+    
+    GuiService.ErrorMessageChanged:Connect(function()
+        if GuiService:GetErrorCode() ~= Enum.ConnectionError.OK then
+            if state.AutoReconnect then
+                TryRejoinServer()
+            end
+        end
+    end)
 
     local VirtualUser = game:GetService("VirtualUser")
     LocalPlayer.Idled:Connect(function()
@@ -901,8 +923,6 @@
             end
         end
     end)
-
-    task.spawn(AutoReconnect)
 
     -- Inventory Monitoring System Initialization
     task.spawn(function()
