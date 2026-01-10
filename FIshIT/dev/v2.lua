@@ -449,62 +449,6 @@ local function findUUIDByTier(targetTier)
     return nil 
 end
 
--- Function to get unique fish names in inventory for a specific tier
-local function getFishNamesByTier(targetTier)
-    if not DataReplion or not ItemUtility then return {} end
-    
-    local inventoryData = SafeGet(DataReplion, "Inventory") 
-    local items = (inventoryData and inventoryData.Items) or (inventoryData and inventoryData.Inventory) or SafeGet(DataReplion, "Items")
-    
-    if not items or type(items) ~= "table" then 
-        -- Fallback check for different data structures
-        items = SafeGet(DataReplion, "Inventory")
-        if type(items) ~= "table" then return {} end
-    end
-
-    local names = {}
-    local seen = {}
-    local targetTierString = tostring(targetTier)
-
-    for _, item in pairs(items) do -- Use pairs to be safe with non-sequential tables
-        if item.Id then
-            local base = ItemUtility:GetItemData(item.Id)
-            if base and base.Data and base.Data.Type == "Fish" then
-                if tostring(base.Data.Tier) == targetTierString then
-                    local name = base.Data.Name
-                    if name and not seen[name] then
-                        table.insert(names, name)
-                        seen[name] = true
-                    end
-                end
-            end
-        end
-    end
-    table.sort(names)
-    return names
-end
-
--- Function to find UUID by both name and tier for precision
-local function findUUIDByNameAndTier(targetName, targetTier)
-    if not DataReplion or not ItemUtility or not targetName or not targetTier then return nil end
-    local inventoryData = SafeGet(DataReplion, "Inventory") 
-    local items = (inventoryData and inventoryData.Items) or SafeGet(DataReplion, "Items")
-    if not items or type(items) ~= "table" then return nil end
-
-    local targetTierString = tostring(targetTier)
-    for _, item in ipairs(items) do
-        if item.Id then
-            local base = ItemUtility:GetItemData(item.Id)
-            if base and base.Data and base.Data.Type == "Fish" then
-                if base.Data.Name == targetName and tostring(base.Data.Tier) == targetTierString then
-                    return item.UUID, base.Data.Name, item.Id 
-                end
-            end
-        end
-    end
-    return nil
-end
-
 local function hasTier7Fish()
     if not DataReplion or not ItemUtility then return false end
 
@@ -615,7 +559,6 @@ end)
 local ManualTradeSection = UtilityTab:Section({ Title = "Manual Trade", Icon = "box" })
 local manualSelectedPlayer = nil
 local manualSelectedTierValue = nil
-local manualSelectedFishName = nil
 
 ManualTradeSection:Dropdown({
     Title = "Pilih Player",
@@ -634,20 +577,9 @@ ManualTradeSection:Dropdown({
     Callback = function(v)
         manualSelectedTierValue = TIER_MAPPING[trim(v)]
         if manualSelectedTierValue then
-            NotifyInfo("Tier Dipilih", "Mengambil daftar ikan Tier " .. v .. "...")
-            local fishNames = getFishNamesByTier(manualSelectedTierValue)
-            ManualTradeSection:UpdateDropdown("Pilih Nama Ikan", fishNames)
-            if #fishNames == 0 then
-                NotifyWarning("Kosong", "Tidak ada ikan Tier " .. v .. " di inventory.")
-            end
+            NotifyInfo("Tier Dipilih", "Siap kirim Tier: " .. v)
         end
     end
-})
-
-ManualTradeSection:Dropdown({
-    Title = "Pilih Nama Ikan",
-    Values = {},
-    Callback = function(v) manualSelectedFishName = v end
 })
 
 ManualTradeSection:Toggle({
@@ -655,20 +587,20 @@ ManualTradeSection:Toggle({
     Callback = function(value)
         state.AutoTrade = value
         if value then
-            if not manualSelectedPlayer or not manualSelectedTierValue or not manualSelectedFishName then
-                NotifyError("Error", "Lengkapi Player, Tier, dan Nama Ikan!")
+            if not manualSelectedPlayer or not manualSelectedTierValue then
+                NotifyError("Error", "Pilih Player dan Tier dulu!")
                 state.AutoTrade = false
                 ManualTradeSection:UpdateToggle("Start Manual Trade", false)
                 return
             end
             
-            NotifyInfo("Manual Trade Started", "Sending " .. manualSelectedFishName .. " to " .. manualSelectedPlayer)
+            NotifyInfo("Manual Trade Started", "Sending Tier " .. manualSelectedTierValue .. " fish to " .. manualSelectedPlayer)
             
             task.spawn(function()
                 while state.AutoTrade do
-                    local uuid, fishName = findUUIDByNameAndTier(manualSelectedFishName, manualSelectedTierValue)
+                    local uuid, fishName = findUUIDByTier(manualSelectedTierValue)
                     if not uuid then
-                        NotifySuccess("Done", "Semua " .. manualSelectedFishName .. " telah terkirim!")
+                        NotifySuccess("Done", "All Tier " .. manualSelectedTierValue .. " fish sent!")
                         state.AutoTrade = false
                         ManualTradeSection:UpdateToggle("Start Manual Trade", false)
                         break
@@ -706,17 +638,6 @@ ManualTradeSection:Button({
             task.wait(0.5) -- Give time for data to sync
             
             NotifySuccess("Success", "Backpack refreshed")
-            -- Auto-update fish names dropdown if a tier is already selected
-            if manualSelectedTierValue then
-                local fishNames = getFishNamesByTier(manualSelectedTierValue)
-                ManualTradeSection:UpdateDropdown("Pilih Nama Ikan", fishNames)
-                
-                if #fishNames > 0 then
-                    NotifyInfo("Dropdown Updated", "Daftar ikan telah diperbarui.")
-                else
-                    NotifyWarning("No Fish Found", "Tidak ada ikan untuk Tier ini di inventory.")
-                end
-            end
         else
             NotifyError("Failed", "Refresh failed")
         end
