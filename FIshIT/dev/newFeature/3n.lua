@@ -177,12 +177,8 @@ TimingSection:Input({
         if num then Config.CancelDelay = num end
     end
 })
-
--- 4.2 Automation Section
-local AutoSection = MainTab:Section({ Title = sTitle("Blatant Automation"), Icon = "lucide:zap" })
-
-AutoSection:Toggle({
-    Title = sBtn("Blatant Mode (High Speed)"),
+TimingSection:Toggle({
+    Title = sBtn("Blatant Mode"),
     Content = sDesc("Ported from v2/Final: Auto-Equip, ServerTime Sync, Max Speed."),
     Default = false,
     Callback = function(Value)
@@ -194,14 +190,10 @@ AutoSection:Toggle({
     end
 })
 
-AutoSection:Button({
-    Title = sBtn("🚨 Emergency Cancel"),
+TimingSection:Button({
+    Title = sBtn("Recovery Fishing"),
     Callback = function()
         FishingEngine.EmergencyStop()
     end
 })
 
-AutoSection:Paragraph({
-    Title = sTitle("Analyst Note"),
-    Content = "Running 3-10 fish every 5 seconds. \nUse 'Emergency Cancel' if you get stuck."
-})

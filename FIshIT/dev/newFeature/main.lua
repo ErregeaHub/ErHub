@@ -1,18 +1,19 @@
 --[[
-    Title: Smart Blatant Fishing System
-    Feature: Automatic Rod Stat Detection + Intelligent Batch Execution
-    Anti-Detection: Randomized packets, dynamic UUIDs, realistic timing
+    Title: Advanced Fishing Analyst (Blatant Mode)
+    Feature: High-Speed Automated Fishing with Auto-Equip Detection
+    Optimization: Low-End Device Friendly & Modular Architecture
 ]]
 
 --------------------------------------------------------------------------------
 -- 1. Configuration & State
 --------------------------------------------------------------------------------
 local Config = {
-    BatchDelay = 0.7,      -- Delay between batches (0.5-1.0s recommended)
-    MinBatchSize = 5,      -- Minimum concurrent attempts
-    MaxBatchSize = 10,     -- Maximum concurrent attempts
-    IsRunning = false,
-    DetectedRodStats = nil -- Cached rod statistics
+    -- Default Delays (Mutable via UI)
+    CompleteDelay = 0.1,
+    CancelDelay = 0.05,
+    
+    -- Status
+    IsRunning = false
 }
 
 --------------------------------------------------------------------------------
@@ -166,68 +167,41 @@ end
 --------------------------------------------------------------------------------
 local FishingEngine = {}
 
-function FishingEngine.PerformSmartBatchCatch()
-    local rodStats = RodDetection.GetRodStats()
-    local batchSize = math.random(Config.MinBatchSize, Config.MaxBatchSize)
-    
-    for i = 1, batchSize do
-        task.spawn(function()
-            local success, err = pcall(function()
-                -- 0. Auto Equip (Safety)
-                local char = LocalPlayer.Character
-                if not char or not char:FindFirstChildOfClass("Tool") then
-                    Remotes.Equip:FireServer(1)
-                    task.wait(0.1)
-                end
-                
-                -- 1. Generate dynamic data
-                local currentArea = GetCurrentArea()
-                local currentTime = workspace:GetServerTimeNow()
-                local uniqueId = Services.HttpService:GenerateGUID(false)
-                
-                -- Anti-detection randomization
-                local randomSeed = math.random(1, 999999)
-                local caughtFishCount = math.random(0, 3)
-                local minorDelay = math.random(1, 50) / 1000 -- 0.001-0.05s
-                
-                -- 2. Charge rod
-                Remotes.Rod:InvokeServer(currentTime)
-                task.wait(minorDelay)
-                
-                -- 3. Build smart arguments using REAL rod stats
-                local args = {
-                    ["FishStrength"] = rodStats.ClickPower * 100,
-                    ["FishingRodTier"] = rodStats.Tier,
-                    ["SelectedRarity"] = 0.015,
-                    ["AreaName"] = currentArea,
-                    ["UUID"] = uniqueId,
-                    ["StartTime"] = currentTime,
-                    ["LastShift"] = currentTime,
-                    ["RandomSeed"] = randomSeed,
-                    ["CaughtFish"] = caughtFishCount,
-                    ["Resilience"] = rodStats.Resilience,
-                    ["BaseLuck"] = rodStats.BaseLuck
-                }
-                
-                -- 4. Invoke minigame with smart args
-                local biteData = Remotes.Minigame:InvokeServer(args)
-                
-                -- 5. Complete if valid
-                if biteData then
-                    task.wait(minorDelay)
-                    Remotes.Complete:FireServer(true)
-                end
-                
-                -- 6. Cleanup
-                task.wait(minorDelay)
-                Remotes.Cancel:InvokeServer()
-            end)
-
-            if not success and Config.IsRunning then
-                warn("[SmartBatch] Error: " .. tostring(err))
+function FishingEngine.PerformBlatantCatch()
+    task.spawn(function()
+        local success, err = pcall(function()
+            -- 0. Auto Equip (Safety) - Auto-detect if no tool equipped
+            local char = LocalPlayer.Character
+            if not char or not char:FindFirstChildOfClass("Tool") then
+                Remotes.Equip:FireServer(1)
+                task.wait(0.1)
             end
+
+            -- 1. Instant Cast (Server Time)
+            Remotes.Rod:InvokeServer(workspace:GetServerTimeNow())
+            
+            -- 2. Instant Start (Fixed Blatant Args: -1, 1, ServerTime)
+            local biteData = Remotes.Minigame:InvokeServer(-1, 1, workspace:GetServerTimeNow())
+            
+            -- 3. Complete Catch
+            if biteData then
+                if Config.CompleteDelay > 0 then
+                    task.wait(Config.CompleteDelay)
+                end
+                Remotes.Complete:FireServer(true)
+            end
+            
+            -- 4. Instant Reset
+            if Config.CancelDelay > 0 then
+                task.wait(Config.CancelDelay)
+            end
+            Remotes.Cancel:InvokeServer()
         end)
-    end
+
+        if not success and Config.IsRunning then
+            -- Silent fail or warn if needed
+        end
+    end)
 end
 
 function FishingEngine.EmergencyStop()
@@ -238,23 +212,19 @@ function FishingEngine.EmergencyStop()
     print("🛑 Smart Blatant Mode Stopped")
 end
 
-function FishingEngine.StartSmartBlatantLoop()
+function FishingEngine.StartBlatantLoop()
     if Config.IsRunning then return end
     Config.IsRunning = true
     
-    -- Detect rod stats on start
-    local stats = RodDetection.GetRodStats()
-    print("🎣 Smart Blatant Mode Active")
-    print("📊 Detected Rod: " .. stats.Name)
-    print("⚡ Tier: " .. stats.Tier .. " | Power: " .. stats.ClickPower)
+    print("🚀 Starting Blatant Mode")
     
     task.spawn(function()
         while Config.IsRunning do
-            FishingEngine.PerformSmartBatchCatch()
+            FishingEngine.PerformBlatantCatch()
             
-            -- Randomized batch delay for anti-detection
-            local delay = Config.BatchDelay + (math.random(-100, 100) / 1000)
-            task.wait(math.max(0.3, delay))
+            -- Loop speed controlled by completion delays to prevent overflow
+            local loopDelay = (Config.CompleteDelay or 0.1) + (Config.CancelDelay or 0.05) + 0.01
+            task.wait(loopDelay)
         end
     end)
 end
@@ -269,13 +239,13 @@ local function sDesc(text) return string.format('<font size="9">%s</font>', text
 local function sBtn(text) return string.format('<font size="11">%s</font>', text) end
 
 local Window = WindUI:CreateWindow({
-    Title = "Smart Blatant System",
-    Icon = "brain",
-    Author = "Gemini AI",
-    Folder = "SmartFishing",
-    Size = UDim2.fromOffset(450, 300),
-    MinSize = Vector2.new(450, 300),
-    MaxSize = Vector2.new(850, 600),
+    Title = "Advanced Fishing Analyst",
+    Icon = "fish",
+    Author = "Gemini",
+    Folder = "FishingConfig",
+    Size = UDim2.fromOffset(450, 250),
+    MinSize = Vector2.new(450, 250),
+    MaxSize = Vector2.new(850, 560),
     Transparent = true,
     Theme = "Dark",
     Resizable = true,
@@ -287,101 +257,50 @@ local Window = WindUI:CreateWindow({
 Window:SetToggleKey(Enum.KeyCode.RightControl)
 WindUI:SetNotificationLower(true)
 
-local MainTab = Window:Tab({ Title = "Smart Fishing", Icon = "lucide:fish" })
+local MainTab = Window:Tab({ Title = "Fishing", Icon = "lucide:fish" })
 
--- Rod Stats Section
-local StatsSection = MainTab:Section({ Title = sTitle("Rod Detection"), Icon = "lucide:info" })
+-- Timing Settings Section
+local TimingSection = MainTab:Section({ Title = sTitle("Timing Settings"), Icon = "lucide:clock" })
 
-StatsSection:Button({
-    Title = sBtn("🔍 Detect Current Rod"),
-    Callback = function()
-        local stats = RodDetection.GetRodStats()
-        WindUI:Notify({
-            Title = "Rod Detected",
-            Content = string.format("%s | Tier %d | Power %.2f", stats.Name, stats.Tier, stats.ClickPower),
-            Duration = 3,
-            Icon = "circle-check"
-        })
+TimingSection:Input({
+    Title = sBtn("Complete Delay (s)"),
+    Content = sDesc("Delay before catching (Default: 0.1s)"),
+    Default = tostring(Config.CompleteDelay),
+    Placeholder = "0.1",
+    Callback = function(Value)
+        local num = tonumber(Value)
+        if num then Config.CompleteDelay = num end
     end
 })
 
-StatsSection:Paragraph({
-    Title = sTitle("Current Rod"),
-    Content = function()
-        local stats = Config.DetectedRodStats or RodDetection.GetRodStats()
-        return string.format("Name: %s\nTier: %d\nPower: %.2f", stats.Name, stats.Tier, stats.ClickPower)
+TimingSection:Input({
+    Title = sBtn("Cancel Delay (s)"),
+    Content = sDesc("Delay after catch (Default: 0.05s)"),
+    Default = tostring(Config.CancelDelay),
+    Placeholder = "0.05",
+    Callback = function(Value)
+        local num = tonumber(Value)
+        if num then Config.CancelDelay = num end
     end
 })
 
--- Configuration Section
-local ConfigSection = MainTab:Section({ Title = sTitle("Batch Settings"), Icon = "lucide:settings" })
-
-ConfigSection:Slider({
-    Title = sBtn("Batch Delay"),
-    Desc = sDesc("Delay between batches (0.5-1.5s)"),
-    Step = 0.1,
-    Value = {
-        Min = 0.5,
-        Max = 1.5,
-        Default = 0.7,
-    },
-    Callback = function(v)
-        Config.BatchDelay = v
-    end
-})
-
-ConfigSection:Slider({
-    Title = sBtn("Min Batch Size"),
-    Desc = sDesc("Minimum concurrent attempts"),
-    Step = 1,
-    Value = {
-        Min = 3,
-        Max = 8,
-        Default = 5,
-    },
-    Callback = function(v)
-        Config.MinBatchSize = v
-    end
-})
-
-ConfigSection:Slider({
-    Title = sBtn("Max Batch Size"),
-    Desc = sDesc("Maximum concurrent attempts"),
-    Step = 1,
-    Value = {
-        Min = 6,
-        Max = 15,
-        Default = 10,
-    },
-    Callback = function(v)
-        Config.MaxBatchSize = v
-    end
-})
-
--- Automation Section
-local AutoSection = MainTab:Section({ Title = sTitle("Smart Automation"), Icon = "lucide:zap" })
-
-AutoSection:Toggle({
-    Title = sBtn("🧠 Smart Blatant Mode"),
-    Content = sDesc("Auto-detects rod stats and executes intelligent batches"),
+TimingSection:Toggle({
+    Title = sBtn("Blatant Mode"),
+    Content = sDesc("Auto-Equip, ServerTime Sync, Max Speed"),
     Default = false,
     Callback = function(Value)
         if Value then
-            FishingEngine.StartSmartBlatantLoop()
+            FishingEngine.StartBlatantLoop()
         else
             Config.IsRunning = false
         end
     end
 })
 
-AutoSection:Button({
-    Title = sBtn("🚨 Emergency Stop"),
+TimingSection:Button({
+    Title = sBtn("Recovery Fishing"),
     Callback = function()
         FishingEngine.EmergencyStop()
     end
 })
 
-AutoSection:Paragraph({
-    Title = sTitle("Features"),
-    Content = "✓ Automatic rod detection\n✓ Dynamic stat extraction\n✓ Randomized packets\n✓ Anti-detection timing"
-})
