@@ -4,72 +4,7 @@
     Feature: High-Performance Batch Fishing (3-10 Fish / 5s)
     Optimization: Low-End Device Friendly & Modular Architecture
 ]]
---------------------------------------------------------------------------------
--- 4. User Interface (WindUI)
---------------------------------------------------------------------------------
-local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 
-local Window = WindUI:CreateWindow({
-    Title = "Advanced Fishing Analyst",
-    Icon = "rbxassetid://10734951102",
-    Author = "Gemini",
-    Folder = "FishingConfig",
-    Theme = "Dark"
-})
-
-local MainTab = Window:Tab({ Title = "Fishing", Icon = "lucide:fish" })
-
--- Section: Timing Configuration
-MainTab:AddSection("Timing Settings")
-
-MainTab:AddInput({
-    Title = "Complete Delay (s)",
-    Default = tostring(Config.CompleteDelay),
-    Placeholder = "0.1",
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then Config.CompleteDelay = num end
-    end
-})
-
-MainTab:AddInput({
-    Title = "Cancel Delay (s)",
-    Default = tostring(Config.CancelDelay),
-    Placeholder = "0.05",
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then Config.CancelDelay = num end
-    end
-})
-
--- Section: Blatant Automation
-MainTab:AddSection("Blatant Automation")
-
-MainTab:AddToggle({
-    Title = "Blatant Mode (Batch 3-10)",
-    Default = false,
-    Callback = function(Value)
-        if Value then
-            FishingEngine.StartBatchLoop()
-        else
-            Config.IsRunning = false
-        end
-    end
-})
-
-MainTab:AddButton({
-    Title = "🚨 Emergency Cancel",
-    Callback = function()
-        FishingEngine.EmergencyStop()
-        -- Note: User needs to toggle off manually to restart loop properly in UI state
-        -- but the internal flag is set to false immediately.
-    end
-})
-
-MainTab:AddParagraph({
-    Title = "Analyst Note",
-    Content = "Running 3-10 fish every 5 seconds. \nUse 'Emergency Cancel' if you get stuck."
-})
 --------------------------------------------------------------------------------
 -- 1. Configuration & State
 --------------------------------------------------------------------------------
@@ -88,7 +23,6 @@ local Config = {
 }
 
 -- Magic Constants (Minigame Logic)
--- Note: These arguments are specific to the "Fisch" minigame protocol.
 local FISH_ARGS = {
     -1, 
     0.1, 
@@ -129,11 +63,9 @@ function FishingEngine.PerformCatch()
             Remotes.Rod:InvokeServer(workspace:GetServerTimeNow())
             
             -- 2. Initiate Minigame
-            -- We pass specific args to simulate a valid game state start
             local biteData = Remotes.Minigame:InvokeServer(unpack(FISH_ARGS))
             
             -- 3. Complete Catch
-            -- Only proceed if the server acknowledged the minigame start
             if biteData then
                 if Config.CompleteDelay > 0 then
                     task.wait(Config.CompleteDelay)
@@ -142,7 +74,6 @@ function FishingEngine.PerformCatch()
             end
             
             -- 4. Reset / Cancel Inputs
-            -- Essential for clearing server-side state for the next cast
             if Config.CancelDelay > 0 then
                 task.wait(Config.CancelDelay)
             end
@@ -171,15 +102,13 @@ function FishingEngine.StartBatchLoop()
     task.spawn(function()
         while Config.IsRunning do
             local batchSize = math.random(Config.MinBatchSize, Config.MaxBatchSize)
-            -- print(string.format("📊 Batch Started: %d fish", batchSize))
             
             for i = 1, batchSize do
                 if not Config.IsRunning then break end
                 
                 FishingEngine.PerformCatch()
                 
-                -- Micro-yield to prevent network throttling/packet loss
-                -- Spreading calls slightly is safer than instant burst
+                -- Micro-yield to prevent network throttling
                 task.wait(0.1) 
             end
             
@@ -193,3 +122,88 @@ function FishingEngine.StartBatchLoop()
     end)
 end
 
+--------------------------------------------------------------------------------
+-- 4. User Interface (WindUI Reference Implementation)
+--------------------------------------------------------------------------------
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+
+-- Helper functions for styling (Matches final.lua text formatting)
+local function sTitle(text) return string.format('<font size="13">%s</font>', text) end
+local function sDesc(text) return string.format('<font size="9">%s</font>', text) end
+local function sBtn(text) return string.format('<font size="11">%s</font>', text) end
+
+-- Window Setup (Matches final.lua configuration)
+local Window = WindUI:CreateWindow({
+    Title = "Advanced Fishing Analyst",
+    Icon = "fish",
+    Author = "Gemini",
+    Folder = "FishingConfig",
+    Size = UDim2.fromOffset(450, 250),
+    MinSize = Vector2.new(450, 250),
+    MaxSize = Vector2.new(850, 560),
+    Transparent = true,
+    Theme = "Dark",
+    Resizable = true,
+    SideBarWidth = 140,
+    BackgroundImageTransparency = 0.5,
+    HideSearchBar = true,
+})
+
+Window:SetToggleKey(Enum.KeyCode.RightControl)
+WindUI:SetNotificationLower(true)
+
+-- Tab Creation
+local MainTab = Window:Tab({ Title = "Fishing", Icon = "lucide:fish" })
+
+-- 4.1 Timing Settings Section
+local TimingSection = MainTab:Section({ Title = sTitle("Timing Settings"), Icon = "lucide:clock" })
+
+TimingSection:Input({
+    Title = sBtn("Complete Delay (s)"),
+    Content = sDesc("Delay before catching (Default: 0.1s)"),
+    Default = tostring(Config.CompleteDelay),
+    Placeholder = "0.1",
+    Callback = function(Value)
+        local num = tonumber(Value)
+        if num then Config.CompleteDelay = num end
+    end
+})
+
+TimingSection:Input({
+    Title = sBtn("Cancel Delay (s)"),
+    Content = sDesc("Delay after catch (Default: 0.05s)"),
+    Default = tostring(Config.CancelDelay),
+    Placeholder = "0.05",
+    Callback = function(Value)
+        local num = tonumber(Value)
+        if num then Config.CancelDelay = num end
+    end
+})
+
+-- 4.2 Automation Section
+local AutoSection = MainTab:Section({ Title = sTitle("Blatant Automation"), Icon = "lucide:zap" })
+
+AutoSection:Toggle({
+    Title = sBtn("Blatant Mode (Batch 3-10)"),
+    Content = sDesc("Catches a random batch of fish every 5 seconds."),
+    Default = false,
+    Callback = function(Value)
+        if Value then
+            FishingEngine.StartBatchLoop()
+        else
+            Config.IsRunning = false
+        end
+    end
+})
+
+AutoSection:Button({
+    Title = sBtn("🚨 Emergency Cancel"),
+    Callback = function()
+        FishingEngine.EmergencyStop()
+    end
+})
+
+AutoSection:Paragraph({
+    Title = sTitle("Analyst Note"),
+    Content = "Running 3-10 fish every 5 seconds. \nUse 'Emergency Cancel' if you get stuck."
+})
