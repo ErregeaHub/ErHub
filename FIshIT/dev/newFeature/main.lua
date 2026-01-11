@@ -47,7 +47,8 @@ local Remotes = {
     Rod = Net:WaitForChild("RF/ChargeFishingRod"),
     Minigame = Net:WaitForChild("RF/RequestFishingMinigameStarted"),
     Complete = Net:WaitForChild("RE/FishingCompleted"),
-    Cancel = Net:WaitForChild("RF/CancelFishingInputs")
+    Cancel = Net:WaitForChild("RF/CancelFishingInputs"),
+    Equip = Net:WaitForChild("RE/EquipToolFromHotbar")
 }
 
 --------------------------------------------------------------------------------
@@ -55,15 +56,22 @@ local Remotes = {
 --------------------------------------------------------------------------------
 local FishingEngine = {}
 
-function FishingEngine.PerformCatch()
-    -- Run asynchronously to prevent blocking the batch loop
+function FishingEngine.PerformBlatantCatch()
+    -- Ported Logic from dev/final.lua aka "Blatant Mode"
     task.spawn(function()
         local success, err = pcall(function()
-            -- 1. Charge Rod (Server Timestamp)
+            -- 0. Auto Equip (Safety)
+            local char = Services.Players.LocalPlayer.Character
+            if not char or not char:FindFirstChildOfClass("Tool") then
+                Remotes.Equip:FireServer(1)
+                task.wait(0.1)
+            end
+
+            -- 1. Instant Cast (Server Time)
             Remotes.Rod:InvokeServer(workspace:GetServerTimeNow())
             
-            -- 2. Initiate Minigame
-            local biteData = Remotes.Minigame:InvokeServer(unpack(FISH_ARGS))
+            -- 2. Instant Start (Fixed Blatant Args: -1, 1, ServerTime)
+            local biteData = Remotes.Minigame:InvokeServer(-1, 1, workspace:GetServerTimeNow())
             
             -- 3. Complete Catch
             if biteData then
@@ -73,15 +81,15 @@ function FishingEngine.PerformCatch()
                 Remotes.Complete:FireServer(true)
             end
             
-            -- 4. Reset / Cancel Inputs
+            -- 4. Instant Reset
             if Config.CancelDelay > 0 then
                 task.wait(Config.CancelDelay)
             end
             Remotes.Cancel:InvokeServer()
         end)
-        
-        if not success then
-            warn("[FishingEngine] Catch Failed: " .. tostring(err))
+
+        if not success and Config.IsRunning then
+           -- Silent fail or warn if needed
         end
     end)
 end
@@ -95,29 +103,19 @@ function FishingEngine.EmergencyStop()
     print("🛑 Emergency Stop Triggered")
 end
 
-function FishingEngine.StartBatchLoop()
-    if Config.IsRunning then return end -- Prevent multiple loops
+function FishingEngine.StartBlatantLoop()
+    if Config.IsRunning then return end
     Config.IsRunning = true
     
+    -- Ported Loop Structure from dev/final.lua
     task.spawn(function()
         while Config.IsRunning do
-            local batchSize = math.random(Config.MinBatchSize, Config.MaxBatchSize)
+            FishingEngine.PerformBlatantCatch()
             
-            for i = 1, batchSize do
-                if not Config.IsRunning then break end
-                
-                FishingEngine.PerformCatch()
-                
-                -- Micro-yield to prevent network throttling
-                task.wait(0.1) 
-            end
-            
-            -- Wait for next batch interval
-            local elapsed = 0
-            while elapsed < Config.BatchInterval do
-                if not Config.IsRunning then break end
-                elapsed = elapsed + task.wait(0.5)
-            end
+            -- Loop speed controlled by completion delays to prevent overflow
+            -- Matches final.lua formula: Complete + Cancel + 0.01
+            local loopDelay = (Config.CompleteDelay or 0.1) + (Config.CancelDelay or 0.05) + 0.01
+            task.wait(loopDelay)
         end
     end)
 end
@@ -184,12 +182,12 @@ TimingSection:Input({
 local AutoSection = MainTab:Section({ Title = sTitle("Blatant Automation"), Icon = "lucide:zap" })
 
 AutoSection:Toggle({
-    Title = sBtn("Blatant Mode (Batch 3-10)"),
-    Content = sDesc("Catches a random batch of fish every 5 seconds."),
+    Title = sBtn("Blatant Mode (High Speed)"),
+    Content = sDesc("Ported from v2/Final: Auto-Equip, ServerTime Sync, Max Speed."),
     Default = false,
     Callback = function(Value)
         if Value then
-            FishingEngine.StartBatchLoop()
+            FishingEngine.StartBlatantLoop()
         else
             Config.IsRunning = false
         end
