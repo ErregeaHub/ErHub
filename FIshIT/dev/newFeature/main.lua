@@ -270,7 +270,7 @@ local MainTab = Window:Tab({ Title = "Fishing", Icon = "lucide:fish" })
 local TimingSection = MainTab:Section({ Title = sTitle("Timing Settings"), Icon = "lucide:clock" })
 
 TimingSection:Input({
-    Title = sBtn("Complete Delay (s)"),
+    Title = sBtn("Complete Delay"),
     Content = sDesc("Delay before catching (Default: 0.1s)"),
     Default = tostring(Config.CompleteDelay),
     Placeholder = "0.1",
@@ -281,7 +281,7 @@ TimingSection:Input({
 })
 
 TimingSection:Input({
-    Title = sBtn("Cancel Delay (s)"),
+    Title = sBtn("Cancel Delay"),
     Content = sDesc("Delay after catch (Default: 0.05s)"),
     Default = tostring(Config.CancelDelay),
     Placeholder = "0.05",
