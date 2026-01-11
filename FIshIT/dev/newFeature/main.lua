@@ -222,8 +222,8 @@ function FishingEngine.StartBlatantLoop()
         while Config.IsRunning do
             FishingEngine.PerformBlatantCatch()
             
-            -- Loop speed controlled by completion delays to prevent overflow
-            local loopDelay = (Config.CompleteDelay or 0.1) + (Config.CancelDelay or 0.05)
+            -- Loop speed controlled by complete fishing delay
+            local loopDelay = (Config.CompleteDelay or 0.001)
             task.wait(loopDelay)
         end
     end)
