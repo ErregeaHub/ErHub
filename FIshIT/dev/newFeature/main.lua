@@ -177,7 +177,7 @@ TimingSection:Input({
         if num then Config.CancelDelay = num end
     end
 })
-timingSection:Toggle({
+TimingSection:Toggle({
     Title = sBtn("Blatant Mode (High Speed)"),
     Content = sDesc("Ported from v2/Final: Auto-Equip, ServerTime Sync, Max Speed."),
     Default = false,
