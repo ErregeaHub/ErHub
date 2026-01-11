@@ -177,7 +177,7 @@ function FishingEngine.PerformBlatantCatch()
             Remotes.Minigame:InvokeServer(-1, 1, workspace:GetServerTimeNow())
             
             -- 3. FishingCompleted
-            Remotes.Complete:FireServer(true)
+            Remotes.Complete:FireServer()
             
             -- 4. CancelFishingInputs
             Remotes.Cancel:InvokeServer()
