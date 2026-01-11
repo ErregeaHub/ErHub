@@ -150,7 +150,7 @@ function RodDetection.GetRodStats()
         Config.DetectedRodStats = stats
         return stats
     else
-        warn("[RodDetection] Failed to detect stats, using defaults")
+        print("[RodDetection] Failed to detect stats, using defaults")
         return {
             Tier = 7,
             ClickPower = 0.31,
@@ -209,14 +209,14 @@ function FishingEngine.EmergencyStop()
     task.spawn(function()
         pcall(function() Remotes.Cancel:InvokeServer() end)
     end)
-    print("🛑 Smart Blatant Mode Stopped")
+    print(" Smart Blatant Mode Stopped")
 end
 
 function FishingEngine.StartBlatantLoop()
     if Config.IsRunning then return end
     Config.IsRunning = true
     
-    print("🚀 Starting Blatant Mode")
+    print(" Starting Blatant Mode")
     
     task.spawn(function()
         while Config.IsRunning do
