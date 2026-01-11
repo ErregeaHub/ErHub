@@ -232,13 +232,21 @@ end
 --------------------------------------------------------------------------------
 -- 6. User Interface
 --------------------------------------------------------------------------------
-local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+local success, WindUI = pcall(function()
+    return loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+end)
+
+if not success then
+    warn("[UI] Failed to load WindUI, using fallback")
+    return
+end
 
 local function sTitle(text) return string.format('<font size="13">%s</font>', text) end
 local function sDesc(text) return string.format('<font size="9">%s</font>', text) end
 local function sBtn(text) return string.format('<font size="11">%s</font>', text) end
 
-local Window = WindUI:CreateWindow({
+local windowSuccess, Window = pcall(function()
+    return WindUI:CreateWindow({
     Title = "BLATANT",
     Icon = "fish",
     Author = "BLATANT",
@@ -252,7 +260,14 @@ local Window = WindUI:CreateWindow({
     SideBarWidth = 140,
     BackgroundImageTransparency = 0.5,
     HideSearchBar = true,
-})
+    })
+end)
+
+if not windowSuccess or not Window then
+    warn("[UI] Failed to create window: ToolTip parent locked error")
+    warn("[UI] Script will run without UI - use console commands")
+    return
+end
 
 Window:SetToggleKey(Enum.KeyCode.RightControl)
 WindUI:SetNotificationLower(true)
