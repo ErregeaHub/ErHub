@@ -291,7 +291,7 @@ TimingSection:Input({
 })
 
 TimingSection:Toggle({
-    Title = sBtn("Blatant Mode"),
+    Title = sBtn("Blatant Mode test"),
     Content = sDesc("Auto-Equip, ServerTime Sync, Max Speed"),
     Default = false,
     Callback = function(Value)
