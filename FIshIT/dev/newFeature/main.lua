@@ -17,7 +17,7 @@ local Window = WindUI:CreateWindow({
     Theme = "Dark"
 })
 
-local MainTab = Window:CreateTab("Automation", "fish")
+local MainTab = Window:Tab({ Title = "Fishing", Icon = "lucide:fish" })
 
 -- Section: Timing Configuration
 MainTab:AddSection("Timing Settings")
