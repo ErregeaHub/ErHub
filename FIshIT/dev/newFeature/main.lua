@@ -239,9 +239,9 @@ local function sDesc(text) return string.format('<font size="9">%s</font>', text
 local function sBtn(text) return string.format('<font size="11">%s</font>', text) end
 
 local Window = WindUI:CreateWindow({
-    Title = "Advanced Fishing Analyst",
+    Title = "BLATANT",
     Icon = "fish",
-    Author = "Gemini",
+    Author = "BLATANT",
     Folder = "FishingConfig",
     Size = UDim2.fromOffset(450, 250),
     MinSize = Vector2.new(450, 250),
