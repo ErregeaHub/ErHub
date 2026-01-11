@@ -170,17 +170,18 @@ local FishingEngine = {}
 function FishingEngine.PerformBlatantCatch()
     task.spawn(function()
         local success, err = pcall(function()
-            -- 1. ChargeFishingRod
+            -- Step 1: Reset Status - Clear any previous fishing state
+            Remotes.Cancel:InvokeServer()
+            
+            -- Step 2: Start Casting - Begin the fishing action
             Remotes.Rod:InvokeServer(workspace:GetServerTimeNow())
             
-            -- 2. RequestFishingMinigameStarted
+            -- Step 3: Instant Request - Request minigame with blatant arguments
             Remotes.Minigame:InvokeServer(-1, 1, workspace:GetServerTimeNow())
             
-            -- 3. FishingCompleted
+            -- Step 4: Claim Catch - Complete after minimal delay
+            task.wait(Config.CompleteDelay or 0.1)
             Remotes.Complete:FireServer(true)
-            
-            -- 4. CancelFishingInputs
-            Remotes.Cancel:InvokeServer()
         end)
 
         if not success and Config.IsRunning then
@@ -213,8 +214,8 @@ function FishingEngine.StartBlatantLoop()
         while Config.IsRunning do
             FishingEngine.PerformBlatantCatch()
             
-            -- Loop speed controlled by complete + cancel delays
-            local loopDelay = (Config.CompleteDelay or 0.1) + (Config.CancelDelay or 0.05)
+            -- Loop speed controlled by cancel delay (CompleteDelay is now inside PerformBlatantCatch)
+            local loopDelay = Config.CancelDelay or 0.05
             task.wait(loopDelay)
         end
     end)
