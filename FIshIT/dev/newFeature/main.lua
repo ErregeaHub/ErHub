@@ -170,31 +170,16 @@ local FishingEngine = {}
 function FishingEngine.PerformBlatantCatch()
     task.spawn(function()
         local success, err = pcall(function()
-            -- 0. Auto Equip (Safety) - Auto-detect if no tool equipped
-            local char = LocalPlayer.Character
-            if not char or not char:FindFirstChildOfClass("Tool") then
-                Remotes.Equip:FireServer(1)
-                task.wait(0.1)
-            end
-
-            -- 1. Instant Cast (Server Time)
+            -- 1. ChargeFishingRod
             Remotes.Rod:InvokeServer(workspace:GetServerTimeNow())
             
-            -- 2. Instant Start (Fixed Blatant Args: -1, 1, ServerTime)
-            local biteData = Remotes.Minigame:InvokeServer(-1, 1, workspace:GetServerTimeNow())
+            -- 2. RequestFishingMinigameStarted
+            Remotes.Minigame:InvokeServer(-1, 1, workspace:GetServerTimeNow())
             
-            -- 3. Complete Catch
-            if biteData then
-                if Config.CompleteDelay > 0 then
-                    task.wait(Config.CompleteDelay)
-                end
-                Remotes.Complete:FireServer(true)
-            end
+            -- 3. FishingCompleted
+            Remotes.Complete:FireServer(true)
             
-            -- 4. Instant Reset
-            if Config.CancelDelay > 0 then
-                task.wait(Config.CancelDelay)
-            end
+            -- 4. CancelFishingInputs
             Remotes.Cancel:InvokeServer()
         end)
 
@@ -218,12 +203,18 @@ function FishingEngine.StartBlatantLoop()
     
     print(" Starting Blatant Mode")
     
+    -- Auto-Equip rod once before starting
+    pcall(function()
+        Remotes.Equip:FireServer(1)
+    end)
+    task.wait(0.2)
+    
     task.spawn(function()
         while Config.IsRunning do
             FishingEngine.PerformBlatantCatch()
             
-            -- Loop speed controlled by complete fishing delay
-            local loopDelay = (Config.CompleteDelay or 0.001)
+            -- Loop speed controlled by complete + cancel delays
+            local loopDelay = (Config.CompleteDelay or 0.1) + (Config.CancelDelay or 0.05)
             task.wait(loopDelay)
         end
     end)
