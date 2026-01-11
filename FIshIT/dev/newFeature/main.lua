@@ -4,7 +4,72 @@
     Feature: High-Performance Batch Fishing (3-10 Fish / 5s)
     Optimization: Low-End Device Friendly & Modular Architecture
 ]]
+--------------------------------------------------------------------------------
+-- 4. User Interface (WindUI)
+--------------------------------------------------------------------------------
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 
+local Window = WindUI:CreateWindow({
+    Title = "Advanced Fishing Analyst",
+    Icon = "rbxassetid://10734951102",
+    Author = "Gemini",
+    Folder = "FishingConfig",
+    Theme = "Dark"
+})
+
+local MainTab = Window:CreateTab("Automation", "fish")
+
+-- Section: Timing Configuration
+MainTab:AddSection("Timing Settings")
+
+MainTab:AddInput({
+    Title = "Complete Delay (s)",
+    Default = tostring(Config.CompleteDelay),
+    Placeholder = "0.1",
+    Callback = function(Value)
+        local num = tonumber(Value)
+        if num then Config.CompleteDelay = num end
+    end
+})
+
+MainTab:AddInput({
+    Title = "Cancel Delay (s)",
+    Default = tostring(Config.CancelDelay),
+    Placeholder = "0.05",
+    Callback = function(Value)
+        local num = tonumber(Value)
+        if num then Config.CancelDelay = num end
+    end
+})
+
+-- Section: Blatant Automation
+MainTab:AddSection("Blatant Automation")
+
+MainTab:AddToggle({
+    Title = "Blatant Mode (Batch 3-10)",
+    Default = false,
+    Callback = function(Value)
+        if Value then
+            FishingEngine.StartBatchLoop()
+        else
+            Config.IsRunning = false
+        end
+    end
+})
+
+MainTab:AddButton({
+    Title = "🚨 Emergency Cancel",
+    Callback = function()
+        FishingEngine.EmergencyStop()
+        -- Note: User needs to toggle off manually to restart loop properly in UI state
+        -- but the internal flag is set to false immediately.
+    end
+})
+
+MainTab:AddParagraph({
+    Title = "Analyst Note",
+    Content = "Running 3-10 fish every 5 seconds. \nUse 'Emergency Cancel' if you get stuck."
+})
 --------------------------------------------------------------------------------
 -- 1. Configuration & State
 --------------------------------------------------------------------------------
@@ -128,69 +193,3 @@ function FishingEngine.StartBatchLoop()
     end)
 end
 
---------------------------------------------------------------------------------
--- 4. User Interface (WindUI)
---------------------------------------------------------------------------------
-local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
-
-local Window = WindUI:CreateWindow({
-    Title = "Advanced Fishing Analyst",
-    Icon = "rbxassetid://10734951102",
-    Author = "Gemini",
-    Folder = "FishingConfig",
-    Theme = "Dark"
-})
-
-local MainTab = Window:CreateTab("Automation", "fish")
-
--- Section: Timing Configuration
-MainTab:AddSection("Timing Settings")
-
-MainTab:AddInput({
-    Title = "Complete Delay (s)",
-    Default = tostring(Config.CompleteDelay),
-    Placeholder = "0.1",
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then Config.CompleteDelay = num end
-    end
-})
-
-MainTab:AddInput({
-    Title = "Cancel Delay (s)",
-    Default = tostring(Config.CancelDelay),
-    Placeholder = "0.05",
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then Config.CancelDelay = num end
-    end
-})
-
--- Section: Blatant Automation
-MainTab:AddSection("Blatant Automation")
-
-MainTab:AddToggle({
-    Title = "Blatant Mode (Batch 3-10)",
-    Default = false,
-    Callback = function(Value)
-        if Value then
-            FishingEngine.StartBatchLoop()
-        else
-            Config.IsRunning = false
-        end
-    end
-})
-
-MainTab:AddButton({
-    Title = "🚨 Emergency Cancel",
-    Callback = function()
-        FishingEngine.EmergencyStop()
-        -- Note: User needs to toggle off manually to restart loop properly in UI state
-        -- but the internal flag is set to false immediately.
-    end
-})
-
-MainTab:AddParagraph({
-    Title = "Analyst Note",
-    Content = "Running 3-10 fish every 5 seconds. \nUse 'Emergency Cancel' if you get stuck."
-})
