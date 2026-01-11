@@ -131,7 +131,8 @@ end
 --------------------------------------------------------------------------------
 -- 4. User Interface (WindUI)
 --------------------------------------------------------------------------------
-local WindUI = loadstring(game:HttpGet("https://tree-hub.vercel.app/api/library/windui"))()
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+
 local Window = WindUI:CreateWindow({
     Title = "Advanced Fishing Analyst",
     Icon = "rbxassetid://10734951102",
