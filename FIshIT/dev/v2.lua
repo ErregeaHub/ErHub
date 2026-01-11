@@ -46,6 +46,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local VirtualUser = game:GetService("VirtualUser")
 local TeleportService = game:GetService("TeleportService")
+local GuiService = game:GetService("GuiService")
 local HttpService = game:GetService("HttpService")
 
 local LocalPlayer = Players.LocalPlayer
@@ -215,10 +216,12 @@ task.spawn(function()
     equipFishingToolFromHotbar(1)
 end)
 
--- Session Security: Anti-AFK
 LocalPlayer.Idled:Connect(function()
-    VirtualUser:CaptureController()
-    VirtualUser:ClickButton2(Vector2.new())
+    pcall(function()
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+        warn("ErHub: Anti-AFK Triggered to prevent kick.")
+    end)
 end)
 
 local XPBar = LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("XP")
@@ -228,22 +231,35 @@ task.spawn(function()
 end)
 
 local PlaceId = game.PlaceId
+local JobId = game.JobId
+local autoReconnectInProgress = false
 
-local function AutoReconnect()
-    while task.wait(5) do
-        if not LocalPlayer or not LocalPlayer:IsDescendantOf(game) then
-            TeleportService:Teleport(PlaceId)
-        end
+local function TryRejoinServer()
+    if autoReconnectInProgress then
+        return
+    end
+    autoReconnectInProgress = true
+    
+    warn("ErHub: Detected disconnect, attempting to rejoin current server...")
+    task.wait(5)
+    
+    local successSameServer = pcall(function()
+        TeleportService:TeleportToPlaceInstance(PlaceId, JobId, LocalPlayer)
+    end)
+    
+    if not successSameServer then
+        warn("ErHub: Same server rejoin failed, teleporting to any server...")
+        pcall(function()
+            TeleportService:Teleport(PlaceId, LocalPlayer)
+        end)
     end
 end
 
-LocalPlayer.OnTeleport:Connect(function(teleportState)
-    if teleportState == Enum.TeleportState.Failed then
-        TeleportService:Teleport(PlaceId)
+GuiService.ErrorMessageChanged:Connect(function()
+    if GuiService:GetErrorCode() ~= Enum.ConnectionError.OK then
+        TryRejoinServer()
     end
 end)
-
-task.spawn(AutoReconnect)
 
 local RodIdle = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Animations"):WaitForChild("EquipIdle")
 local RodReel = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Animations"):WaitForChild("ReelStart")
