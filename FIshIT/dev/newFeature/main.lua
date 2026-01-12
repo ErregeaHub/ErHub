@@ -176,9 +176,10 @@ function FishingEngine.PerformBlatantCatch()
         Remotes.Minigame:InvokeServer(-1, 1, workspace:GetServerTimeNow())
         
         -- Step 3 (Complete): Claim catch after minimal delay
-        task.wait(Config.CompleteDelay or 0.1)
+      
         Remotes.Complete:FireServer()
         
+        task.wait(Config.CompleteDelay or 0.1)
         -- Step 4 (Reset): Reset state for next cast
         Remotes.Cancel:InvokeServer()
     end)
