@@ -181,16 +181,16 @@ function FishingEngine.PerformBlatantCatch()
             -- Step 1 (Charge): Begin the fishing action
             Remotes.Rod:InvokeServer(workspace:GetServerTimeNow())
             
-            -- Step 2 (Request): Immediately request minigame with blatant arguments
-            local biteData = Remotes.Minigame:InvokeServer(-1, 1, workspace:GetServerTimeNow())
+            -- Step 2 (Request): Request minigame without waiting for response (Non-blocking)
+            task.spawn(function()
+                Remotes.Minigame:InvokeServer(-1, 1, workspace:GetServerTimeNow())
+            end)
             
-            -- Step 3 (Complete): Claim catch after minimal delay
-            if biteData then
-                if Config.CompleteDelay > 0 then
-                    task.wait(Config.CompleteDelay)
-                end
-                Remotes.Complete:FireServer()
+            -- Step 3 (Complete): Claim catch immediately (Bypassed biteData check for speed)
+            if Config.CompleteDelay > 0 then
+                task.wait(Config.CompleteDelay)
             end
+            Remotes.Complete:FireServer()
             
             -- Step 4 (Reset): Reset state for next cast
             if Config.CancelDelay > 0 then
