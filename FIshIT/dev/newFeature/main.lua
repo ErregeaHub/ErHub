@@ -221,12 +221,13 @@ function FishingEngine.StartBlatantLoop()
     pcall(function()
         Remotes.Equip:FireServer(1)
     end)
-    task.wait(0.2)
+    task.wait(0.000002)
     
     task.spawn(function()
         while Config.IsRunning do
             FishingEngine.PerformBlatantCatch()
-            -- All delays are now handled inside PerformBlatantCatch
+            -- Loop speed controlled by CompleteDelay
+            task.wait(Config.CompleteDelay or 0.1)
         end
     end)
 end
