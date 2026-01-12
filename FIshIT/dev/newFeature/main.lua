@@ -168,39 +168,41 @@ end
 local FishingEngine = {}
 
 function FishingEngine.PerformBlatantCatch()
-    local success, err = pcall(function()
-        -- Step 0 (Auto-Equip Safety): Ensure rod is equipped
-        local playerName = Services.Players.LocalPlayer.Name
-        local char = workspace:FindFirstChild("Characters") and workspace.Characters:FindFirstChild(playerName)
-        if not char or not char:FindFirstChild("!!!EQUIPPED_TOOL!!!") then
-            Remotes.Equip:FireServer(1)
-            task.wait(0.1)
-        end
-        
-        -- Step 1 (Charge): Begin the fishing action
-        Remotes.Rod:InvokeServer(workspace:GetServerTimeNow())
-        
-        -- Step 2 (Request): Immediately request minigame with blatant arguments
-        local biteData = Remotes.Minigame:InvokeServer(-1, 1, workspace:GetServerTimeNow())
-        
-        -- Step 3 (Complete): Claim catch after minimal delay
-        if biteData then
-            if Config.CompleteDelay > 0 then
-                task.wait(Config.CompleteDelay)
+    task.spawn(function()
+        local success, err = pcall(function()
+             -- Step 0 (Auto-Equip Safety): Ensure rod is equipped
+            local playerName = Services.Players.LocalPlayer.Name
+            local char = workspace:FindFirstChild("Characters") and workspace.Characters:FindFirstChild(playerName)
+            if not char or not char:FindFirstChild("!!!EQUIPPED_TOOL!!!") then
+                Remotes.Equip:FireServer(1)
+                task.wait(0.1)
             end
-            Remotes.Complete:FireServer(true)
-        end
-        
-        -- Step 4 (Reset): Reset state for next cast
-        if Config.CancelDelay > 0 then
-            task.wait(Config.CancelDelay)
-        end
-        Remotes.Cancel:InvokeServer()
-    end)
+            
+            -- Step 1 (Charge): Begin the fishing action
+            Remotes.Rod:InvokeServer(workspace:GetServerTimeNow())
+            
+            -- Step 2 (Request): Immediately request minigame with blatant arguments
+            local biteData = Remotes.Minigame:InvokeServer(-1, 1, workspace:GetServerTimeNow())
+            
+            -- Step 3 (Complete): Claim catch after minimal delay
+            if biteData then
+                if Config.CompleteDelay > 0 then
+                    task.wait(Config.CompleteDelay)
+                end
+                Remotes.Complete:FireServer(true)
+            end
+            
+            -- Step 4 (Reset): Reset state for next cast
+            if Config.CancelDelay > 0 then
+                task.wait(Config.CancelDelay)
+            end
+            Remotes.Cancel:InvokeServer()
+        end)
 
-    if not success and Config.IsRunning then
-        -- Silent fail or warn if needed
-    end
+        if not success and Config.IsRunning then
+            -- Silent fail or warn if needed
+        end
+    end)
 end
 
 function FishingEngine.EmergencyStop()
