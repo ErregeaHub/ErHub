@@ -189,7 +189,7 @@ function FishingEngine.PerformBlatantCatch()
                 if Config.CompleteDelay > 0 then
                     task.wait(Config.CompleteDelay)
                 end
-                Remotes.Complete:FireServer(true)
+                Remotes.Complete:FireServer()
             end
             
             -- Step 4 (Reset): Reset state for next cast
