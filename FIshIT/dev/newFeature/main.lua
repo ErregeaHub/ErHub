@@ -217,7 +217,7 @@ function FishingEngine.StartBlatantLoop()
     if Config.IsRunning then return end
     Config.IsRunning = true
     
-    print(" Starting Blatant Mode")
+    print(" Starting Blatant Mode v2")
     
     -- Auto-Equip rod once before starting
     pcall(function()
