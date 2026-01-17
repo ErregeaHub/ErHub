@@ -57,8 +57,7 @@ local MainSection = MainTab:Section({
 -- Input untuk mengatur waktu (Detik)
 MainSection:Input({
     Title = sTitle("Delay"),
-    Desc = sDesc("(Example: 3)"),
-    Placeholder = "Default: 5",
+    Desc = sDesc("(Example: 3) (Default: 5)"),
     TextSize = 8,
     Callback = function(text)
         local num = tonumber(text)
