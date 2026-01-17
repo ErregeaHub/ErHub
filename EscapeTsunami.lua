@@ -37,12 +37,19 @@ local WaitTime = 5 -- Default 5 detik
 -- ----- =======[ MAPPING SYSTEM ] =======
 -- -------------------------------------------
 local function findPlayerBase()
-    if not workspace:FindFirstChild("Bases") then return nil end
+    print("Searching for base with Holder:", game.Players.LocalPlayer.UserId)
+    if not workspace:FindFirstChild("Bases") then 
+        warn("Bases folder not found in Workspace")
+        return nil 
+    end
     for _, base in pairs(workspace.Bases:GetChildren()) do
-        if base:GetAttribute("Holder") == game.Players.LocalPlayer.UserId then
+        local holder = base:GetAttribute("Holder")
+        if tostring(holder) == tostring(game.Players.LocalPlayer.UserId) then
+            print("Base found:", base.Name)
             return base
         end
     end
+    warn("No base found for Holder:", game.Players.LocalPlayer.UserId)
     return nil
 end
 
@@ -50,15 +57,19 @@ local function getBrainrotSlots()
     local base = findPlayerBase()
     local foundItems = {}
     if base and base:FindFirstChild("Slots") then
+        print("Scanning slots in:", base.Name)
         for _, slot in pairs(base.Slots:GetChildren()) do
-            -- Assuming structure: Bases.BaseX.Slots.SlotX.[BrainrotName]
             for _, child in pairs(slot:GetChildren()) do
                 if child:IsA("Model") or child:IsA("Folder") or (child:IsA("BasePart") and child.Name ~= "Part") then
+                    print("Found Brainrot:", child.Name, "in", slot.Name)
                     table.insert(foundItems, {Name = child.Name, SlotID = slot.Name})
                 end
             end
         end
+    else
+        warn("Base or Slots folder not found for mapping")
     end
+    print("Total Brainrots found:", #foundItems)
     return foundItems
 end
 
@@ -81,7 +92,7 @@ end
 
 -- Inisialisasi Window
 local Window = WindUI:CreateWindow({
-    Title = "Erhub [v1.1.1]", -- Updated Title to match image style
+    Title = "Erhub [v0.0.2]", -- Updated Title to match image style
     Icon = "droplet", -- Updated Icon
     Author = "", -- Updated Author
     Folder = "AutoCollect_Config",
@@ -109,7 +120,7 @@ Window:EditOpenButton({
 -- Membuat Tab Utama
 local MainTab = Window:Tab({
     Title = sTitle("Automatic"),
-    Icon = "fish",
+    Icon = "coins",
 })
 
 -- Section
@@ -291,6 +302,7 @@ local BrainrotDropdown = BrainrotSection:Dropdown({
 BrainrotSection:Button({
     Title = sBtn("Refresh Slots"),
     Callback = function()
+        print("Refresh button clicked")
         local slots = getBrainrotSlots()
         local names = {}
         for _, item in pairs(slots) do
@@ -298,7 +310,14 @@ BrainrotSection:Button({
                 table.insert(names, item.Name)
             end
         end
-        BrainrotDropdown:SetValues(names)
+        print("Updating dropdown with", #names, "items")
+        if BrainrotDropdown.SetValues then
+            BrainrotDropdown:SetValues(names)
+        elseif BrainrotDropdown.SetOptions then
+            BrainrotDropdown:SetOptions(names)
+        else
+            warn("WindUI Dropdown update method not found (tried SetValues, SetOptions)")
+        end
     end
 })
 
