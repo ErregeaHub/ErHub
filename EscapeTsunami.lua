@@ -34,6 +34,36 @@ local AutoCollect = false
 local WaitTime = 5 -- Default 5 detik
 
 -- -------------------------------------------
+-- ----- =======[ MAPPING SYSTEM ] =======
+-- -------------------------------------------
+local function findPlayerBase()
+    if not workspace:FindFirstChild("Bases") then return nil end
+    for _, base in pairs(workspace.Bases:GetChildren()) do
+        if base:GetAttribute("Holder") == game.Players.LocalPlayer.UserId then
+            return base
+        end
+    end
+    return nil
+end
+
+local function getBrainrotSlots()
+    local base = findPlayerBase()
+    local foundItems = {}
+    if base and base:FindFirstChild("Slots") then
+        for _, slot in pairs(base.Slots:GetChildren()) do
+            -- Assuming structure: Bases.BaseX.Slots.SlotX.[BrainrotName]
+            for _, child in pairs(slot:GetChildren()) do
+                if child:IsA("Model") or child:IsA("Folder") or (child:IsA("BasePart") and child.Name ~= "Part") then
+                    table.insert(foundItems, {Name = child.Name, SlotID = slot.Name})
+                end
+            end
+        end
+    end
+    return foundItems
+end
+
+
+-- -------------------------------------------
 -- ----- =======[ MOBILE SCALING ] =======
 -- -------------------------------------------
 
@@ -60,7 +90,7 @@ local Window = WindUI:CreateWindow({
     MinSize = Vector2.new(450, 250),
     MaxSize = Vector2.new(850, 560),
     SideBarWidth = 140,
-    CornerRadius = UDim2.new(0,4), -- Slightly rounded for Chloe look
+    CornerRadius = UDim2.new(0,2), -- Sharp corners 2px
     Transparent = true, 
     Acrylic = true, -- Enable Blur Effect
     Theme = "DeepNavy",
@@ -69,7 +99,7 @@ local Window = WindUI:CreateWindow({
 Window:EditOpenButton({
     Title = sBtn("Open"),
     Icon = "droplet",
-    CornerRadius = UDim.new(0,4),
+    CornerRadius = UDim.new(0,2),
     StrokeThickness = 0,
     OnlyMobile = false,
     Enabled = true,
@@ -154,7 +184,7 @@ RebirthSection:Toggle({
                     pcall(function()
                         game:GetService("ReplicatedStorage").RemoteFunctions.Rebirth:InvokeServer()
                     end)
-                    task.wait() -- Optimize CPU usage
+                    task.wait(5) -- Delay 5 seconds for Rebirth
                 end
             end)
         end
@@ -183,7 +213,7 @@ UpgradeSection:Toggle({
                     pcall(function()
                          game:GetService("ReplicatedStorage").RemoteFunctions.UpgradeSpeed:InvokeServer(1)
                     end)
-                    task.wait()
+                    task.wait(1) -- Delay 1 second for Upgrade
                 end
             end)
         end
@@ -203,7 +233,7 @@ UpgradeSection:Toggle({
                     pcall(function()
                          game:GetService("ReplicatedStorage").RemoteFunctions.UpgradeSpeed:InvokeServer(5)
                     end)
-                    task.wait()
+                    task.wait(1) -- Delay 1 second for Upgrade
                 end
             end)
         end
@@ -223,11 +253,101 @@ UpgradeSection:Toggle({
                     pcall(function()
                          game:GetService("ReplicatedStorage").RemoteFunctions.UpgradeSpeed:InvokeServer(10)
                     end)
-                    task.wait()
+                    task.wait(1) -- Delay 1 second for Upgrade
                 end
             end)
         end
     end
 })
+
+-- -------------------------------------------
+-- ----- =======[ BRAINROT SYSTEM ] =======
+-- -------------------------------------------
+local BrainrotTab = Window:Tab({
+    Title = sTitle("Brainrot"),
+    Icon = "brain",
+})
+
+local BrainrotSection = BrainrotTab:Section({
+    Title = sTitle("Slot Mapping"),
+    TextSize = 11,
+    Opened = true,
+})
+
+local SelectedBrainrot = nil
+local AutoUpgradeBrainrot = false
+
+local BrainrotDropdown = BrainrotSection:Dropdown({
+    Title = sTitle("Select Brainrot to Upgrade"),
+    Multi = false,
+    AllowNone = true,
+    Value = nil,
+    Values = {},
+    Callback = function(val)
+        SelectedBrainrot = val
+    end
+})
+
+BrainrotSection:Button({
+    Title = sBtn("Refresh Slots"),
+    Callback = function()
+        local slots = getBrainrotSlots()
+        local names = {}
+        for _, item in pairs(slots) do
+            if not table.find(names, item.Name) then
+                table.insert(names, item.Name)
+            end
+        end
+        BrainrotDropdown:SetValues(names)
+    end
+})
+
+BrainrotSection:Toggle({
+    Title = sTitle("Enable Auto Upgrade"),
+    Value = false,
+    TextSize = 9,
+    Callback = function(state)
+        AutoUpgradeBrainrot = state
+        if AutoUpgradeBrainrot then
+            task.spawn(function()
+                while AutoUpgradeBrainrot do
+                    if SelectedBrainrot then
+                        local slots = getBrainrotSlots()
+                        local targetSlotID = nil
+                        for _, item in pairs(slots) do
+                            if item.Name == SelectedBrainrot then
+                                targetSlotID = item.SlotID
+                                break
+                            end
+                        end
+
+                        if targetSlotID then
+                            pcall(function()
+                                game:GetService("ReplicatedStorage").RemoteFunctions.UpgradeBrainrot:InvokeServer({targetSlotID})
+                            end)
+                        end
+                    end
+                    task.wait(1)
+                end
+            end)
+        end
+    end
+})
+
+-- SCRIPT CUSTOM CORNER OVERRIDE
+task.spawn(function()
+    task.wait(0.5) -- Wait for UI to fully load
+    if game.CoreGui:FindFirstChild("Erhub [v1.1.1]") or game.CoreGui:FindFirstChild("WindUI") then
+        local gui = game.CoreGui:FindFirstChild("Erhub [v1.1.1]") or game.CoreGui:FindFirstChild("WindUI")
+        if gui then
+             for _, v in pairs(gui:GetDescendants()) do
+                if v:IsA("UICorner") then
+                    v.CornerRadius = UDim.new(0, 2) -- Sharp radius 2px
+                end
+            end
+        end
+    end
+end)
+
 
 
