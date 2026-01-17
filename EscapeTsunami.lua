@@ -132,7 +132,7 @@ end
 
 -- Inisialisasi Window
 local Window = WindUI:CreateWindow({
-    Title = "Erhub [v0.0.22]", -- Updated Title to match image style
+    Title = "Erhub [v0.0.23]", -- Updated Title to match image style
     Icon = "droplet", -- Updated Icon
     Author = "", -- Updated Author
     Folder = "AutoCollect_Config",
@@ -375,35 +375,26 @@ BrainrotSection:Toggle({
                 print("Auto Upgrade Loop Started")
                 while AutoUpgradeBrainrot do
                     if SelectedBrainrot then
-                        -- Use MappedSlots cache instead of rescanning every second
-                        local targetSlotID = nil
+                        local foundAny = false
                         for _, item in pairs(MappedSlots) do
                             if item.Name == SelectedBrainrot then
-                                targetSlotID = item.SlotID
-                                break
+                                foundAny = true
+                                pcall(function()
+                                    game:GetService("ReplicatedStorage").RemoteFunctions.UpgradeBrainrot:InvokeServer(item.SlotID)
+                                end)
                             end
                         end
-
-                        if targetSlotID then
-                            print("Upgrading Brainrot:", SelectedBrainrot, "at", targetSlotID)
-                            pcall(function()
-                                game:GetService("ReplicatedStorage").RemoteFunctions.UpgradeBrainrot:InvokeServer(targetSlotID)
-                            end)
-                        else
-                            -- Fallback: If not in cache, try one rescan to see if it appeared
+                        
+                        if not foundAny then
+                            -- Fallback: One rescan if cache is empty or invalid
                             local slots = getBrainrotSlots()
                             MappedSlots = slots
                             for _, item in pairs(slots) do
                                 if item.Name == SelectedBrainrot then
-                                    targetSlotID = item.SlotID
-                                    break
+                                    pcall(function()
+                                        game:GetService("ReplicatedStorage").RemoteFunctions.UpgradeBrainrot:InvokeServer(item.SlotID)
+                                    end)
                                 end
-                            end
-                            
-                            if targetSlotID then
-                                pcall(function()
-                                    game:GetService("ReplicatedStorage").RemoteFunctions.UpgradeBrainrot:InvokeServer(targetSlotID)
-                                end)
                             end
                         end
                     end
