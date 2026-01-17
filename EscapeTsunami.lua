@@ -56,13 +56,17 @@ end
 local function getBrainrotSlots()
     local base = findPlayerBase()
     local foundItems = {}
+    local ExcludeNames = {"Base"}
+    
     if base and base:FindFirstChild("Slots") then
         print("Scanning slots in:", base.Name)
         for _, slot in pairs(base.Slots:GetChildren()) do
             for _, child in pairs(slot:GetChildren()) do
-                if child:IsA("Model") or child:IsA("Folder") or (child:IsA("BasePart") and child.Name ~= "Part") then
-                    print("Found Brainrot:", child.Name, "in", slot.Name)
-                    table.insert(foundItems, {Name = child.Name, SlotID = slot.Name})
+                if not table.find(ExcludeNames, child.Name) then
+                    if child:IsA("Model") or child:IsA("Folder") or child:IsA("BasePart") then
+                        print("Found Brainrot:", child.Name, "in", slot.Name)
+                        table.insert(foundItems, {Name = child.Name, SlotID = slot.Name})
+                    end
                 end
             end
         end
@@ -92,7 +96,7 @@ end
 
 -- Inisialisasi Window
 local Window = WindUI:CreateWindow({
-    Title = "Erhub [v0.0.2]", -- Updated Title to match image style
+    Title = "Erhub [v0.0.21]", -- Updated Title to match image style
     Icon = "droplet", -- Updated Icon
     Author = "", -- Updated Author
     Folder = "AutoCollect_Config",
@@ -311,12 +315,10 @@ BrainrotSection:Button({
             end
         end
         print("Updating dropdown with", #names, "items")
-        if BrainrotDropdown.SetValues then
-            BrainrotDropdown:SetValues(names)
-        elseif BrainrotDropdown.SetOptions then
-            BrainrotDropdown:SetOptions(names)
+        if BrainrotDropdown.Refresh then
+            BrainrotDropdown:Refresh(names)
         else
-            warn("WindUI Dropdown update method not found (tried SetValues, SetOptions)")
+            warn("WindUI Dropdown update method not found (tried Refresh)")
         end
     end
 })
@@ -352,21 +354,5 @@ BrainrotSection:Toggle({
         end
     end
 })
-
--- SCRIPT CUSTOM CORNER OVERRIDE
-task.spawn(function()
-    task.wait(0.5) -- Wait for UI to fully load
-    if game.CoreGui:FindFirstChild("Erhub [v1.1.1]") or game.CoreGui:FindFirstChild("WindUI") then
-        local gui = game.CoreGui:FindFirstChild("Erhub [v1.1.1]") or game.CoreGui:FindFirstChild("WindUI")
-        if gui then
-             for _, v in pairs(gui:GetDescendants()) do
-                if v:IsA("UICorner") then
-                    v.CornerRadius = UDim.new(0, 2) -- Sharp radius 2px
-                end
-            end
-        end
-    end
-end)
-
 
 
