@@ -1,5 +1,27 @@
 local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 
+-- -------------------------------------------
+-- ----- =======[ CUSTOM THEME ] =======
+-- -------------------------------------------
+local DeepNavy = {
+    Name = "DeepNavy",
+    
+    Accent = Color3.fromHex("#3E5C76"),      -- Highlights (Steel Blue)
+    Dialog = Color3.fromHex("#1d2d44"),      -- Secondary/Container
+    Outline = Color3.fromHex("#1d2d44"),     -- Secondary (for borders)
+    Text = Color3.fromHex("#F0EBD8"),        -- Text/Icons (Off-White)
+    Placeholder = Color3.fromHex("#748CAB"), -- Interactive/Muted Blue
+    Background = Color3.fromHex("#0d1321"),  -- Deep Navy
+    Button = Color3.fromHex("#1d2d44"),      -- Secondary
+    Icon = Color3.fromHex("#F0EBD8"),        -- Text/Icons
+    Toggle = Color3.fromHex("#3E5C76"),      -- Highlights
+    Slider = Color3.fromHex("#3E5C76"),      -- Highlights
+    Checkbox = Color3.fromHex("#3E5C76"),    -- Highlights
+}
+
+WindUI:AddTheme(DeepNavy)
+WindUI:SetTheme("DeepNavy")
+
 -- Variabel Kontrol
 local AutoCollect = false
 local WaitTime = 5 -- Default 5 detik
@@ -26,12 +48,13 @@ local Window = WindUI:CreateWindow({
     Icon = "coins",
     Author = "",
     Folder = "AutoCollect_Config",
-    Size = UDim2.fromOffset(450, 250),
-    MinSize = Vector2.new(450, 250),
-    MaxSize = Vector2.new(850, 560),
+    -- Compact Mobile Size
+    Size = UDim2.fromOffset(220, 250),
+    MinSize = Vector2.new(220, 250),
+    MaxSize = Vector2.new(450, 560),
     CornerRadius = UDim2.new(0,2),
     Transparent = true,
-    Theme = "Dark",
+    Theme = "DeepNavy",
 })
 
 Window:EditOpenButton({
@@ -89,7 +112,6 @@ MainSection:Toggle({
                                 "Slot" .. i
                             }
                             -- Using WaitForChild only once if possible is better, but inside pcall is safe for now
-                            -- based on user request layout
                             game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("CollectMoney"):FireServer(unpack(args))
                         end
                     end)
@@ -100,10 +122,14 @@ MainSection:Toggle({
     end
 })
 
--- SCRIPT CUSTOM CORNER (Letakkan di paling bawah)
-for _, v in pairs(game.CoreGui:FindFirstChild("Erhub"):GetDescendants()) do
-    if v:IsA("UICorner") then
-        -- Mengubah semua elemen (Tab, Section, Button, Input) jadi sudut tajam/custom
-        v.CornerRadius = UDim.new(0, 2) 
+-- SCRIPT CUSTOM CORNER OVERRIDE (Forced 2px)
+task.spawn(function()
+    task.wait(0.5) -- Wait for UI to fully load
+    if game.CoreGui:FindFirstChild("Erhub") then
+        for _, v in pairs(game.CoreGui:FindFirstChild("Erhub"):GetDescendants()) do
+            if v:IsA("UICorner") then
+                v.CornerRadius = UDim.new(0, 2) 
+            end
+        end
     end
-end
+end)
