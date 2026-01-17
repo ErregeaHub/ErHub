@@ -90,6 +90,34 @@ end
 -- ----- =======[ MOBILE SCALING ] =======
 -- -------------------------------------------
 
+
+  local function NotifySuccess(title, message, duration)
+        WindUI:Notify({
+            Title = title,
+            Content = message,
+            Duration = 1,
+            Icon = "circle-check"
+        })
+    end
+
+    local function NotifyError(title, message, duration)
+        WindUI:Notify({
+            Title = title,
+            Content = message,
+            Duration = 1,
+            Icon = "ban"
+        })
+    end
+
+    local function NotifyInfo(title, message, duration)
+        WindUI:Notify({
+            Title = title,
+            Content = message,
+            Duration = 1,
+            Icon = "info"
+        })
+    end
+
 local function sTitle(text)
     return string.format('<font size="13">%s</font>', text)
 end
@@ -283,6 +311,8 @@ UpgradeSection:Toggle({
     end
 })
 
+
+
 -- -------------------------------------------
 -- ----- =======[ BRAINROT SYSTEM ] =======
 -- -------------------------------------------
@@ -292,16 +322,17 @@ local BrainrotTab = Window:Tab({
 })
 
 local BrainrotSection = BrainrotTab:Section({
-    Title = sTitle("Slot Mapping"),
+    Title = sTitle("Auto Upgrade Brainrot"),
     TextSize = 11,
     Opened = true,
 })
 
 local SelectedBrainrot = nil
 local AutoUpgradeBrainrot = false
+local MappedSlots = {} -- Local cache for slots
 
 local BrainrotDropdown = BrainrotSection:Dropdown({
-    Title = sTitle("Select Brainrot to Upgrade"),
+    Title = sTitle("Select Brainrot"),
     Multi = false,
     AllowNone = true,
     Value = nil,
@@ -316,6 +347,8 @@ BrainrotSection:Button({
     Callback = function()
         print("Refresh button clicked")
         local slots = getBrainrotSlots()
+        MappedSlots = slots -- Update cache
+        
         local names = {}
         for _, item in pairs(slots) do
             if not table.find(names, item.Name) then
@@ -342,9 +375,9 @@ BrainrotSection:Toggle({
                 print("Auto Upgrade Loop Started")
                 while AutoUpgradeBrainrot do
                     if SelectedBrainrot then
-                        local slots = getBrainrotSlots()
+                        -- Use MappedSlots cache instead of rescanning every second
                         local targetSlotID = nil
-                        for _, item in pairs(slots) do
+                        for _, item in pairs(MappedSlots) do
                             if item.Name == SelectedBrainrot then
                                 targetSlotID = item.SlotID
                                 break
@@ -354,15 +387,25 @@ BrainrotSection:Toggle({
                         if targetSlotID then
                             print("Upgrading Brainrot:", SelectedBrainrot, "at", targetSlotID)
                             pcall(function()
-                                -- Passing targetSlotID directly instead of in a table
-                                local result = game:GetService("ReplicatedStorage").RemoteFunctions.UpgradeBrainrot:InvokeServer(targetSlotID)
-                                -- If it expects a number like 29 instead of "Slot29", we'll handle it if this fails
+                                game:GetService("ReplicatedStorage").RemoteFunctions.UpgradeBrainrot:InvokeServer(targetSlotID)
                             end)
                         else
-                            warn("Selected brainrot not found in slots during loop")
+                            -- Fallback: If not in cache, try one rescan to see if it appeared
+                            local slots = getBrainrotSlots()
+                            MappedSlots = slots
+                            for _, item in pairs(slots) do
+                                if item.Name == SelectedBrainrot then
+                                    targetSlotID = item.SlotID
+                                    break
+                                end
+                            end
+                            
+                            if targetSlotID then
+                                pcall(function()
+                                    game:GetService("ReplicatedStorage").RemoteFunctions.UpgradeBrainrot:InvokeServer(targetSlotID)
+                                end)
+                            end
                         end
-                    else
-                        print("No brainrot selected for upgrade")
                     end
                     task.wait(1)
                 end
