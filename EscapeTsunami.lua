@@ -6,17 +6,24 @@ local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/rel
 local DeepNavy = {
     Name = "DeepNavy",
     
-    Accent = Color3.fromHex("#3E5C76"),      -- Highlights (Steel Blue)
-    Dialog = Color3.fromHex("#1d2d44"),      -- Secondary/Container
-    Outline = Color3.fromHex("#1d2d44"),     -- Secondary (for borders)
-    Text = Color3.fromHex("#F0EBD8"),        -- Text/Icons (Off-White)
-    Placeholder = Color3.fromHex("#748CAB"), -- Interactive/Muted Blue
-    Background = Color3.fromHex("#0d1321"),  -- Deep Navy
-    Button = Color3.fromHex("#1d2d44"),      -- Secondary
-    Icon = Color3.fromHex("#F0EBD8"),        -- Text/Icons
-    Toggle = Color3.fromHex("#3E5C76"),      -- Highlights
-    Slider = Color3.fromHex("#3E5C76"),      -- Highlights
-    Checkbox = Color3.fromHex("#3E5C76"),    -- Highlights
+    Accent = Color3.fromHex("#00bfff"),      -- Updated to Bright Cyan/Blue for "Chloe X" look (Vibrant)
+    Dialog = Color3.fromHex("#1d2d44"),      -- Secondary
+    Outline = Color3.fromHex("#1d2d44"),     -- Borders
+    Text = Color3.fromHex("#F0EBD8"),        -- Text
+    Placeholder = Color3.fromHex("#748CAB"), -- Placeholder
+    Background = Color3.fromHex("#0d1321"),  -- Background
+    Button = Color3.fromHex("#1d2d44"),      -- Button
+    Icon = Color3.fromHex("#F0EBD8"),        -- Icon
+    Toggle = Color3.fromHex("#00bfff"),      -- Toggle Accent
+    Slider = Color3.fromHex("#00bfff"),      -- Slider Accent
+    Checkbox = Color3.fromHex("#00bfff"),    -- Checkbox Accent
+    
+    -- Transparency Overrides (if supported by library logic, otherwise handled via Acrylic)
+    Transparency = {
+        Background = 0.6,
+        Dialog = 0.8,
+        Button = 0.8,
+    }
 }
 
 WindUI:AddTheme(DeepNavy)
@@ -44,22 +51,23 @@ end
 
 -- Inisialisasi Window
 local Window = WindUI:CreateWindow({
-    Title = "Erhub",
-    Icon = "coins",
-    Author = "",
+    Title = "Erhub [v1.1.1]", -- Updated Title to match image style
+    Icon = "droplet", -- Updated Icon
+    Author = "", -- Updated Author
     Folder = "AutoCollect_Config",
     -- Compact Mobile Size
     Size = UDim2.fromOffset(220, 250),
     MinSize = Vector2.new(220, 250),
     MaxSize = Vector2.new(450, 560),
-    CornerRadius = UDim2.new(0,2),
-    Transparent = true,
+    CornerRadius = UDim2.new(0,4), -- Slightly rounded for Chloe look
+    Transparent = true, 
+    Acrylic = true, -- Enable Blur Effect
     Theme = "DeepNavy",
 })
 
 Window:EditOpenButton({
-    Title = sBtn("ErHub"),
-    Icon = "coins",
+    Title = sBtn("Open"),
+    Icon = "droplet",
     CornerRadius = UDim.new(0,4),
     StrokeThickness = 0,
     OnlyMobile = false,
@@ -69,13 +77,13 @@ Window:EditOpenButton({
 
 -- Membuat Tab Utama
 local MainTab = Window:Tab({
-    Title = sTitle("Auto"),
-    Icon = "hand-coins",
+    Title = sTitle("Fishing"),
+    Icon = "fish",
 })
 
 -- Section
 local MainSection = MainTab:Section({
-    Title = sTitle("Settings"),
+    Title = sTitle("Fishing Support"),
     TextSize = 11,
 })
 
@@ -122,13 +130,16 @@ MainSection:Toggle({
     end
 })
 
--- SCRIPT CUSTOM CORNER OVERRIDE (Forced 2px)
+-- SCRIPT CUSTOM CORNER OVERRIDE
 task.spawn(function()
     task.wait(0.5) -- Wait for UI to fully load
-    if game.CoreGui:FindFirstChild("Erhub") then
-        for _, v in pairs(game.CoreGui:FindFirstChild("Erhub"):GetDescendants()) do
-            if v:IsA("UICorner") then
-                v.CornerRadius = UDim.new(0, 2) 
+    if game.CoreGui:FindFirstChild("Chloe X [v1.1.1]") or game.CoreGui:FindFirstChild("WindUI") then
+        local gui = game.CoreGui:FindFirstChild("Chloe X [v1.1.1]") or game.CoreGui:FindFirstChild("WindUI")
+        if gui then
+             for _, v in pairs(gui:GetDescendants()) do
+                if v:IsA("UICorner") then
+                    v.CornerRadius = UDim.new(0, 4) -- Matched to main radius
+                end
             end
         end
     end
