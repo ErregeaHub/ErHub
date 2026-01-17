@@ -26,7 +26,9 @@ local Window = WindUI:CreateWindow({
     Icon = "coins",
     Author = "",
     Folder = "AutoCollect_Config",
-    Size = UDim2.fromOffset(220, 250),
+    Size = UDim2.fromOffset(450, 250),
+    MinSize = Vector2.new(450, 250),
+    MaxSize = Vector2.new(850, 560),
     CornerRadius = UDim2.new(0,2),
     Transparent = true,
     Theme = "Dark",
@@ -57,7 +59,7 @@ local MainSection = MainTab:Section({
 -- Input untuk mengatur waktu (Detik)
 MainSection:Input({
     Title = sTitle("Delay"),
-    Desc = sDesc("(Example: 3) (Default: 5)"),
+    Desc = sDesc("(Example: 3)"),
     TextSize = 8,
     Callback = function(text)
         local num = tonumber(text)
@@ -98,3 +100,10 @@ MainSection:Toggle({
     end
 })
 
+-- SCRIPT CUSTOM CORNER (Letakkan di paling bawah)
+for _, v in pairs(game.CoreGui:FindFirstChild("Erhub"):GetDescendants()) do
+    if v:IsA("UICorner") then
+        -- Mengubah semua elemen (Tab, Section, Button, Input) jadi sudut tajam/custom
+        v.CornerRadius = UDim.new(0, 2) 
+    end
+end
