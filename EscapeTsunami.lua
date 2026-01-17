@@ -38,7 +38,7 @@ local WaitTime = 5 -- Default 5 detik
 -- -------------------------------------------
 
 local function sTitle(text)
-    return string.format('<font size="13">%s</font>', text)
+    return string.format('<font size="12">%s</font>', text)
 end
 
 local function sDesc(text)
@@ -51,18 +51,18 @@ end
 
 -- Inisialisasi Window
 local Window = WindUI:CreateWindow({
-    Title = "Erhub [v1.1.1]", -- Updated Title to match image style
-    Icon = "droplet", -- Updated Icon
-    Author = "", -- Updated Author
+    Title = "Erhub [v0.0.1]", 
+    Icon = "droplet", 
+    Author = "", 
     Folder = "AutoCollect_Config",
     -- Compact Mobile Size
     Size = UDim2.fromOffset(450, 250),
     MinSize = Vector2.new(450, 250),
     MaxSize = Vector2.new(850, 560),
     SideBarWidth = 140,
-    CornerRadius = UDim2.new(0,4), -- Slightly rounded for Chloe look
+    CornerRadius = UDim2.new(0,2),  
     Transparent = true, 
-    Acrylic = true, -- Enable Blur Effect
+    Acrylic = true, 
     Theme = "DeepNavy",
 })
 
@@ -103,6 +103,7 @@ MainSection:Input({
             print("Masukkan angka yang valid!")
         end
     end
+  
 })
 
 -- Toggle untuk menyalakan/mematikan Auto Collect
@@ -132,17 +133,3 @@ MainSection:Toggle({
     end
 })
 
--- SCRIPT CUSTOM CORNER OVERRIDE
-task.spawn(function()
-    task.wait(0.5) -- Wait for UI to fully load
-    if game.CoreGui:FindFirstChild("Erhub [v1.1.1]") or game.CoreGui:FindFirstChild("WindUI") then
-        local gui = game.CoreGui:FindFirstChild("Erhub [v1.1.1]") or game.CoreGui:FindFirstChild("WindUI")
-        if gui then
-             for _, v in pairs(gui:GetDescendants()) do
-                if v:IsA("UICorner") then
-                    v.CornerRadius = UDim.new(0, 4) -- Matched to main radius
-                end
-            end
-        end
-    end
-end)
