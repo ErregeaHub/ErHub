@@ -78,7 +78,7 @@ Window:EditOpenButton({
 
 -- Membuat Tab Utama
 local MainTab = Window:Tab({
-    Title = sTitle("Automation"),
+    Title = sTitle("Automatic"),
     Icon = "fish",
 })
 
@@ -132,17 +132,102 @@ MainSection:Toggle({
     end
 })
 
--- SCRIPT CUSTOM CORNER OVERRIDE
-task.spawn(function()
-    task.wait(0.5) -- Wait for UI to fully load
-    if game.CoreGui:FindFirstChild("Erhub [v1.1.1]") or game.CoreGui:FindFirstChild("WindUI") then
-        local gui = game.CoreGui:FindFirstChild("Erhub [v1.1.1]") or game.CoreGui:FindFirstChild("WindUI")
-        if gui then
-             for _, v in pairs(gui:GetDescendants()) do
-                if v:IsA("UICorner") then
-                    v.CornerRadius = UDim.new(0, 4) -- Matched to main radius
+-- -------------------------------------------
+-- ----- =======[ AUTO REBIRTH ] =======
+-- -------------------------------------------
+local RebirthSection = MainTab:Section({
+    Title = sTitle("Auto Rebirth"),
+    TextSize = 11,
+    Opened = true,
+})
+
+local AutoRebirth = false
+RebirthSection:Toggle({
+    Title = sTitle("Auto Rebirth"),
+    Value = false,
+    TextSize = 9,
+    Callback = function(state)
+        AutoRebirth = state
+        if AutoRebirth then
+            task.spawn(function()
+                while AutoRebirth do
+                    pcall(function()
+                        game:GetService("ReplicatedStorage").RemoteFunctions.Rebirth:InvokeServer()
+                    end)
+                    task.wait() -- Optimize CPU usage
                 end
-            end
+            end)
         end
     end
-end)
+})
+
+-- -------------------------------------------
+-- ----- =======[ AUTO UPGRADE SPEED ] =======
+-- -------------------------------------------
+local UpgradeSection = MainTab:Section({
+    Title = sTitle("Auto Upgrade Speed"),
+    TextSize = 11,
+    Opened = true,
+})
+
+local Upgrade1 = false
+UpgradeSection:Toggle({
+    Title = sTitle("Upgrade +1"),
+    Value = false,
+    TextSize = 9,
+    Callback = function(state)
+        Upgrade1 = state
+        if Upgrade1 then
+            task.spawn(function()
+                while Upgrade1 do
+                    pcall(function()
+                         game:GetService("ReplicatedStorage").RemoteFunctions.UpgradeSpeed:InvokeServer(1)
+                    end)
+                    task.wait()
+                end
+            end)
+        end
+    end
+})
+
+local Upgrade5 = false
+UpgradeSection:Toggle({
+    Title = sTitle("Upgrade +5"),
+    Value = false,
+    TextSize = 9,
+    Callback = function(state)
+        Upgrade5 = state
+        if Upgrade5 then
+            task.spawn(function()
+                while Upgrade5 do
+                    pcall(function()
+                         game:GetService("ReplicatedStorage").RemoteFunctions.UpgradeSpeed:InvokeServer(5)
+                    end)
+                    task.wait()
+                end
+            end)
+        end
+    end
+})
+
+local Upgrade10 = false
+UpgradeSection:Toggle({
+    Title = sTitle("Upgrade +10"),
+    Value = false,
+    TextSize = 9,
+    Callback = function(state)
+        Upgrade10 = state
+        if Upgrade10 then
+            task.spawn(function()
+                while Upgrade10 do
+                    pcall(function()
+                         game:GetService("ReplicatedStorage").RemoteFunctions.UpgradeSpeed:InvokeServer(10)
+                    end)
+                    task.wait()
+                end
+            end)
+        end
+    end
+})
+
+
