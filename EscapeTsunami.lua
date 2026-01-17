@@ -6,19 +6,18 @@ local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/rel
 local DeepNavy = {
     Name = "DeepNavy",
     
-    Accent = Color3.fromHex("#00bfff"),      -- Updated to Bright Cyan/Blue for "Chloe X" look (Vibrant)
-    Dialog = Color3.fromHex("#1d2d44"),      -- Secondary
-    Outline = Color3.fromHex("#1d2d44"),     -- Borders
-    Text = Color3.fromHex("#F0EBD8"),        -- Text
-    Placeholder = Color3.fromHex("#748CAB"), -- Placeholder
-    Background = Color3.fromHex("#0d1321"),  -- Background
-    Button = Color3.fromHex("#1d2d44"),      -- Button
-    Icon = Color3.fromHex("#F0EBD8"),        -- Icon
-    Toggle = Color3.fromHex("#00bfff"),      -- Toggle Accent
-    Slider = Color3.fromHex("#00bfff"),      -- Slider Accent
-    Checkbox = Color3.fromHex("#00bfff"),    -- Checkbox Accent
+    Accent = Color3.fromHex("#00bfff"),      
+    Dialog = Color3.fromHex("#1d2d44"),      
+    Outline = Color3.fromHex("#1d2d44"),     
+    Text = Color3.fromHex("#F0EBD8"),        
+    Placeholder = Color3.fromHex("#748CAB"), 
+    Background = Color3.fromHex("#0d1321"),  
+    Button = Color3.fromHex("#1d2d44"),      
+    Icon = Color3.fromHex("#F0EBD8"),        
+    Toggle = Color3.fromHex("#00bfff"),      
+    Slider = Color3.fromHex("#00bfff"),      
+    Checkbox = Color3.fromHex("#00bfff"),    
     
-    -- Transparency Overrides (if supported by library logic, otherwise handled via Acrylic)
     Transparency = {
         Background = 0.6,
         Dialog = 0.8,
@@ -31,21 +30,22 @@ WindUI:SetTheme("DeepNavy")
 
 -- Variabel Kontrol
 local AutoCollect = false
-local WaitTime = 5 -- Default 5 detik
+local WaitTime = 5 
+local PlotActionPath = game:GetService("ReplicatedStorage"):WaitForChild("Packages"):WaitForChild("Net"):WaitForChild("RF/Plot.PlotAction")
 
 -- -------------------------------------------
 -- ----- =======[ MAPPING SYSTEM ] =======
 -- -------------------------------------------
 local function findPlayerBase()
-    print("Searching for base with Holder:", game.Players.LocalPlayer.UserId)
-    if not workspace:FindFirstChild("Bases") then 
-        warn("Bases folder not found in Workspace")
+    if not workspace:FindFirstChild("Bases_NEW") then 
+        warn("Bases_NEW folder not found in Workspace")
         return nil 
     end
-    for _, base in pairs(workspace.Bases:GetChildren()) do
+    for _, base in pairs(workspace.Bases_NEW:GetChildren()) do
         local holder = base:GetAttribute("Holder")
         if tostring(holder) == tostring(game.Players.LocalPlayer.UserId) then
-            print("Base found:", base.Name)
+            _G.MyPlotID = base.Name -- Store GUID
+            print("Base found (GUID):", _G.MyPlotID)
             return base
         end
     end
@@ -56,94 +56,56 @@ end
 local function getBrainrotSlots()
     local base = findPlayerBase()
     local foundItems = {}
-    local ExcludeNames = {"Base", "Rim", "Upgrade", "Collect", "Part", "TouchInterest", "SelectionBox", "Highlight", "UI"}
     
-    if base and base:FindFirstChild("Slots") then
-        print("Scanning slots in:", base.Name)
-        for _, slot in pairs(base.Slots:GetChildren()) do
-            for _, child in pairs(slot:GetChildren()) do
-                -- Only include objects NOT in the exclusion list
-                local isGeneric = false
-                for _, exName in pairs(ExcludeNames) do
-                    if child.Name:find(exName) then
-                        isGeneric = true
-                        break
-                    end
-                end
-
-                if not isGeneric and (child:IsA("Model") or child:IsA("Folder") or child:IsA("BasePart")) then
-                    print("Found Brainrot:", child.Name, "in", slot.Name)
-                    table.insert(foundItems, {Name = child.Name, SlotID = slot.Name})
+    if base then
+        print("Scanning slots in GUID base:", _G.MyPlotID)
+        for _, slot in pairs(base:GetChildren()) do
+            local brainrotName = slot:GetAttribute("BrainrotName")
+            if brainrotName then
+                local slotIndex = string.match(slot.Name, "%d+")
+                if slotIndex then
+                    print("Found Brainrot:", brainrotName, "Index:", slotIndex)
+                    table.insert(foundItems, {Name = brainrotName, SlotID = slotIndex})
                 end
             end
         end
     else
-        warn("Base or Slots folder not found for mapping")
+        warn("Base not found for mapping in Bases_NEW")
     end
     
     print("Total valid Brainrots found:", #foundItems)
     return foundItems
 end
 
+-- Initial Base Detection
+task.spawn(function()
+    findPlayerBase()
+end)
 
 -- -------------------------------------------
--- ----- =======[ MOBILE SCALING ] =======
+-- ----- =======[ NOTIFICATIONS ] =======
 -- -------------------------------------------
-
-
-  local function NotifySuccess(title, message, duration)
-        WindUI:Notify({
-            Title = title,
-            Content = message,
-            Duration = 1,
-            Icon = "circle-check"
-        })
-    end
-
-    local function NotifyError(title, message, duration)
-        WindUI:Notify({
-            Title = title,
-            Content = message,
-            Duration = 1,
-            Icon = "ban"
-        })
-    end
-
-    local function NotifyInfo(title, message, duration)
-        WindUI:Notify({
-            Title = title,
-            Content = message,
-            Duration = 1,
-            Icon = "info"
-        })
-    end
-
-local function sTitle(text)
-    return string.format('<font size="13">%s</font>', text)
+local function NotifySuccess(title, message)
+    WindUI:Notify({Title = title, Content = message, Duration = 1, Icon = "circle-check"})
 end
 
-local function sDesc(text)
-    return string.format('<font size="9">%s</font>', text)
-end
-
-local function sBtn(text)
-    return string.format('<font size="11">%s</font>', text)
-end
+local function sTitle(text) return string.format('<font size="13">%s</font>', text) end
+local function sDesc(text) return string.format('<font size="9">%s</font>', text) end
+local function sBtn(text) return string.format('<font size="11">%s</font>', text) end
 
 -- Inisialisasi Window
 local Window = WindUI:CreateWindow({
-    Title = "Erhub [v0.0.23]", -- Updated Title to match image style
-    Icon = "droplet", -- Updated Icon
-    Author = "", -- Updated Author
+    Title = "Erhub [v0.0.22]",
+    Icon = "droplet",
+    Author = "",
     Folder = "AutoCollect_Config",
-    -- Compact Mobile Size
     Size = UDim2.fromOffset(450, 250),
     MinSize = Vector2.new(450, 250),
     MaxSize = Vector2.new(850, 560),
     SideBarWidth = 140,
-    CornerRadius = UDim2.new(0,2), -- Sharp corners 2px
+    CornerRadius = UDim2.new(0,2),
     Transparent = true, 
-    Acrylic = true, -- Enable Blur Effect
+    Acrylic = true,
     Theme = "DeepNavy",
 })
 
@@ -157,20 +119,18 @@ Window:EditOpenButton({
     Draggable = true,
 })
 
--- Membuat Tab Utama
+-- Tab Utama
 local MainTab = Window:Tab({
     Title = sTitle("Automatic"),
     Icon = "coins",
 })
 
--- Section
+-- Auto Collect Section
 local MainSection = MainTab:Section({
     Title = sTitle("Auto collect"),
     TextSize = 11,
-    Opened = true,
 })
 
--- Input untuk mengatur waktu (Detik)
 MainSection:Input({
     Title = sTitle("Delay"),
     Desc = sDesc("(Example: 3)"),
@@ -179,31 +139,25 @@ MainSection:Input({
         local num = tonumber(text)
         if num and num > 0 then
             WaitTime = num
-            print("Jeda waktu diubah ke: " .. num .. " detik")
-        else
-            print("Masukkan angka yang valid!")
         end
     end
 })
 
--- Toggle untuk menyalakan/mematikan Auto Collect
 MainSection:Toggle({
     Title = sTitle("Auto Collect"),
     Value = false,
     TextSize = 9,
     Callback = function(state)
         AutoCollect = state
-        
         if AutoCollect then
             task.spawn(function()
                 while AutoCollect do
-                   pcall(function()
-                        for i = 1, 20 do
-                            local args = {
-                                "Slot" .. i
-                            }
-                            -- Using WaitForChild only once if possible is better, but inside pcall is safe for now
-                            game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("CollectMoney"):FireServer(unpack(args))
+                    pcall(function()
+                        if not _G.MyPlotID then findPlayerBase() end
+                        for i = 1, 30 do
+                            pcall(function()
+                                PlotActionPath:InvokeServer("Collect Money", _G.MyPlotID, tostring(i))
+                            end)
                         end
                     end)
                     task.wait(WaitTime)
@@ -213,13 +167,10 @@ MainSection:Toggle({
     end
 })
 
--- -------------------------------------------
--- ----- =======[ AUTO REBIRTH ] =======
--- -------------------------------------------
+-- Auto Rebirth Section
 local RebirthSection = MainTab:Section({
     Title = sTitle("Auto Rebirth"),
     TextSize = 11,
-    Opened = true,
 })
 
 local AutoRebirth = false
@@ -235,87 +186,61 @@ RebirthSection:Toggle({
                     pcall(function()
                         game:GetService("ReplicatedStorage").RemoteFunctions.Rebirth:InvokeServer()
                     end)
-                    task.wait(5) -- Delay 5 seconds for Rebirth
+                    task.wait(2)
                 end
             end)
         end
     end
 })
 
--- -------------------------------------------
--- ----- =======[ AUTO UPGRADE SPEED ] =======
--- -------------------------------------------
+-- Auto Upgrade Speed Section
 local UpgradeSection = MainTab:Section({
     Title = sTitle("Auto Upgrade Speed"),
     TextSize = 11,
-    Opened = true,
 })
 
-local Upgrade1 = false
+local function SpeedLoop(amount, stateVar)
+    task.spawn(function()
+        while _G[stateVar] do
+            pcall(function()
+                game:GetService("ReplicatedStorage").RemoteFunctions.UpgradeSpeed:InvokeServer(amount)
+            end)
+            task.wait(1)
+        end
+    end)
+end
+
 UpgradeSection:Toggle({
     Title = sTitle("Upgrade +1"),
     Value = false,
     TextSize = 9,
     Callback = function(state)
-        Upgrade1 = state
-        if Upgrade1 then
-            task.spawn(function()
-                while Upgrade1 do
-                    pcall(function()
-                         game:GetService("ReplicatedStorage").RemoteFunctions.UpgradeSpeed:InvokeServer(1)
-                    end)
-                    task.wait(1) -- Delay 1 second for Upgrade
-                end
-            end)
-        end
+        _G.Upgrade1 = state
+        if state then SpeedLoop(1, "Upgrade1") end
     end
 })
 
-local Upgrade5 = false
 UpgradeSection:Toggle({
     Title = sTitle("Upgrade +5"),
     Value = false,
     TextSize = 9,
     Callback = function(state)
-        Upgrade5 = state
-        if Upgrade5 then
-            task.spawn(function()
-                while Upgrade5 do
-                    pcall(function()
-                         game:GetService("ReplicatedStorage").RemoteFunctions.UpgradeSpeed:InvokeServer(5)
-                    end)
-                    task.wait(1) -- Delay 1 second for Upgrade
-                end
-            end)
-        end
+        _G.Upgrade5 = state
+        if state then SpeedLoop(5, "Upgrade5") end
     end
 })
 
-local Upgrade10 = false
 UpgradeSection:Toggle({
     Title = sTitle("Upgrade +10"),
     Value = false,
     TextSize = 9,
     Callback = function(state)
-        Upgrade10 = state
-        if Upgrade10 then
-            task.spawn(function()
-                while Upgrade10 do
-                    pcall(function()
-                         game:GetService("ReplicatedStorage").RemoteFunctions.UpgradeSpeed:InvokeServer(10)
-                    end)
-                    task.wait(1) -- Delay 1 second for Upgrade
-                end
-            end)
-        end
+        _G.Upgrade10 = state
+        if state then SpeedLoop(10, "Upgrade10") end
     end
 })
 
-
-
--- -------------------------------------------
--- ----- =======[ BRAINROT SYSTEM ] =======
--- -------------------------------------------
+-- Brainrot system
 local BrainrotTab = Window:Tab({
     Title = sTitle("Brainrot"),
     Icon = "brain",
@@ -324,19 +249,16 @@ local BrainrotTab = Window:Tab({
 local BrainrotSection = BrainrotTab:Section({
     Title = sTitle("Auto Upgrade Brainrot"),
     TextSize = 11,
-    Opened = true,
 })
 
 local SelectedBrainrot = nil
 local AutoUpgradeBrainrot = false
-local MappedSlots = {} -- Local cache for slots
+local MappedSlots = {}
 
 local BrainrotDropdown = BrainrotSection:Dropdown({
     Title = sTitle("Select Brainrot"),
     Multi = false,
     AllowNone = true,
-    Value = nil,
-    Values = {},
     Callback = function(val)
         SelectedBrainrot = val
     end
@@ -345,22 +267,13 @@ local BrainrotDropdown = BrainrotSection:Dropdown({
 BrainrotSection:Button({
     Title = sBtn("Refresh Slots"),
     Callback = function()
-        print("Refresh button clicked")
         local slots = getBrainrotSlots()
-        MappedSlots = slots -- Update cache
-        
+        MappedSlots = slots
         local names = {}
         for _, item in pairs(slots) do
-            if not table.find(names, item.Name) then
-                table.insert(names, item.Name)
-            end
+            if not table.find(names, item.Name) then table.insert(names, item.Name) end
         end
-        print("Updating dropdown with", #names, "items")
-        if BrainrotDropdown.Refresh then
-            BrainrotDropdown:Refresh(names)
-        else
-            warn("WindUI Dropdown update method not found (tried Refresh)")
-        end
+        if BrainrotDropdown.Refresh then BrainrotDropdown:Refresh(names) end
     end
 })
 
@@ -372,7 +285,6 @@ BrainrotSection:Toggle({
         AutoUpgradeBrainrot = state
         if AutoUpgradeBrainrot then
             task.spawn(function()
-                print("Auto Upgrade Loop Started")
                 while AutoUpgradeBrainrot do
                     if SelectedBrainrot then
                         local foundAny = false
@@ -380,19 +292,18 @@ BrainrotSection:Toggle({
                             if item.Name == SelectedBrainrot then
                                 foundAny = true
                                 pcall(function()
-                                    game:GetService("ReplicatedStorage").RemoteFunctions.UpgradeBrainrot:InvokeServer(item.SlotID)
+                                    if not _G.MyPlotID then findPlayerBase() end
+                                    PlotActionPath:InvokeServer("Upgrade Brainrot", _G.MyPlotID, tostring(item.SlotID))
                                 end)
                             end
                         end
-                        
                         if not foundAny then
-                            -- Fallback: One rescan if cache is empty or invalid
                             local slots = getBrainrotSlots()
                             MappedSlots = slots
                             for _, item in pairs(slots) do
                                 if item.Name == SelectedBrainrot then
                                     pcall(function()
-                                        game:GetService("ReplicatedStorage").RemoteFunctions.UpgradeBrainrot:InvokeServer(item.SlotID)
+                                        PlotActionPath:InvokeServer("Upgrade Brainrot", _G.MyPlotID, tostring(item.SlotID))
                                     end)
                                 end
                             end
@@ -400,10 +311,7 @@ BrainrotSection:Toggle({
                     end
                     task.wait(1)
                 end
-                print("Auto Upgrade Loop Stopped")
             end)
         end
     end
 })
-
-
