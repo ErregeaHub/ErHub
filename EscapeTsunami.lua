@@ -56,24 +56,32 @@ end
 local function getBrainrotSlots()
     local base = findPlayerBase()
     local foundItems = {}
-    local ExcludeNames = {"Base"}
+    local ExcludeNames = {"Base", "Rim", "Upgrade", "Collect", "Part", "TouchInterest", "SelectionBox", "Highlight", "UI"}
     
     if base and base:FindFirstChild("Slots") then
         print("Scanning slots in:", base.Name)
         for _, slot in pairs(base.Slots:GetChildren()) do
             for _, child in pairs(slot:GetChildren()) do
-                if not table.find(ExcludeNames, child.Name) then
-                    if child:IsA("Model") or child:IsA("Folder") or child:IsA("BasePart") then
-                        print("Found Brainrot:", child.Name, "in", slot.Name)
-                        table.insert(foundItems, {Name = child.Name, SlotID = slot.Name})
+                -- Only include objects NOT in the exclusion list
+                local isGeneric = false
+                for _, exName in pairs(ExcludeNames) do
+                    if child.Name:find(exName) then
+                        isGeneric = true
+                        break
                     end
+                end
+
+                if not isGeneric and (child:IsA("Model") or child:IsA("Folder") or child:IsA("BasePart")) then
+                    print("Found Brainrot:", child.Name, "in", slot.Name)
+                    table.insert(foundItems, {Name = child.Name, SlotID = slot.Name})
                 end
             end
         end
     else
         warn("Base or Slots folder not found for mapping")
     end
-    print("Total Brainrots found:", #foundItems)
+    
+    print("Total valid Brainrots found:", #foundItems)
     return foundItems
 end
 
@@ -96,7 +104,7 @@ end
 
 -- Inisialisasi Window
 local Window = WindUI:CreateWindow({
-    Title = "Erhub [v0.0.21]", -- Updated Title to match image style
+    Title = "Erhub [v0.0.22]", -- Updated Title to match image style
     Icon = "droplet", -- Updated Icon
     Author = "", -- Updated Author
     Folder = "AutoCollect_Config",
@@ -331,6 +339,7 @@ BrainrotSection:Toggle({
         AutoUpgradeBrainrot = state
         if AutoUpgradeBrainrot then
             task.spawn(function()
+                print("Auto Upgrade Loop Started")
                 while AutoUpgradeBrainrot do
                     if SelectedBrainrot then
                         local slots = getBrainrotSlots()
@@ -343,13 +352,21 @@ BrainrotSection:Toggle({
                         end
 
                         if targetSlotID then
+                            print("Upgrading Brainrot:", SelectedBrainrot, "at", targetSlotID)
                             pcall(function()
-                                game:GetService("ReplicatedStorage").RemoteFunctions.UpgradeBrainrot:InvokeServer({targetSlotID})
+                                -- Passing targetSlotID directly instead of in a table
+                                local result = game:GetService("ReplicatedStorage").RemoteFunctions.UpgradeBrainrot:InvokeServer(targetSlotID)
+                                -- If it expects a number like 29 instead of "Slot29", we'll handle it if this fails
                             end)
+                        else
+                            warn("Selected brainrot not found in slots during loop")
                         end
+                    else
+                        print("No brainrot selected for upgrade")
                     end
                     task.wait(1)
                 end
+                print("Auto Upgrade Loop Stopped")
             end)
         end
     end
