@@ -1,9 +1,33 @@
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 
+-- -------------------------------------------
+-- ----- =======[ CUSTOM THEME ] =======
+-- -------------------------------------------
+local DeepNavy = {
+    Name = "DeepNavy",
+    
+    Accent = Color3.fromHex("#00bfff"),      -- Updated to Bright Cyan/Blue for "Chloe X" look (Vibrant)
+    Dialog = Color3.fromHex("#1d2d44"),      -- Secondary
+    Outline = Color3.fromHex("#1d2d44"),     -- Borders
+    Text = Color3.fromHex("#F0EBD8"),        -- Text
+    Placeholder = Color3.fromHex("#748CAB"), -- Placeholder
+    Background = Color3.fromHex("#0d1321"),  -- Background
+    Button = Color3.fromHex("#1d2d44"),      -- Button
+    Icon = Color3.fromHex("#F0EBD8"),        -- Icon
+    Toggle = Color3.fromHex("#00bfff"),      -- Toggle Accent
+    Slider = Color3.fromHex("#00bfff"),      -- Slider Accent
+    Checkbox = Color3.fromHex("#00bfff"),    -- Checkbox Accent
+    
+    -- Transparency Overrides (if supported by library logic, otherwise handled via Acrylic)
+    Transparency = {
+        Background = 0.6,
+        Dialog = 0.8,
+        Button = 0.8,
+    }
+}
 
-
-
-
-local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/ErregeaHub/WindUI/main/dist/main.lua"))()
+WindUI:AddTheme(DeepNavy)
+WindUI:SetTheme("DeepNavy")
 
 -- Variabel Kontrol
 local AutoCollect = false
@@ -27,7 +51,7 @@ end
 
 -- Inisialisasi Window
 local Window = WindUI:CreateWindow({
-    Title = "Erhub [v1.1.2]", -- Updated Title to match image style
+    Title = "Erhub [v1.1.1]", -- Updated Title to match image style
     Icon = "droplet", -- Updated Icon
     Author = "", -- Updated Author
     Folder = "AutoCollect_Config",
@@ -36,7 +60,7 @@ local Window = WindUI:CreateWindow({
     MinSize = Vector2.new(450, 250),
     MaxSize = Vector2.new(850, 560),
     SideBarWidth = 140,
-    CornerRadius = 4, -- Slightly rounded for Chloe look
+    CornerRadius = UDim2.new(0,4), -- Slightly rounded for Chloe look
     Transparent = true, 
     Acrylic = true, -- Enable Blur Effect
     Theme = "DeepNavy",
@@ -45,7 +69,7 @@ local Window = WindUI:CreateWindow({
 Window:EditOpenButton({
     Title = sBtn("Open"),
     Icon = "droplet",
-    CornerRadius = 4,
+    CornerRadius = UDim.new(0,4),
     StrokeThickness = 0,
     OnlyMobile = false,
     Enabled = true,
@@ -55,7 +79,7 @@ Window:EditOpenButton({
 -- Membuat Tab Utama
 local MainTab = Window:Tab({
     Title = sTitle("Automation"),
-    Icon = "coins",
+    Icon = "fish",
 })
 
 -- Section
@@ -107,3 +131,18 @@ MainSection:Toggle({
         end
     end
 })
+
+-- SCRIPT CUSTOM CORNER OVERRIDE
+task.spawn(function()
+    task.wait(0.5) -- Wait for UI to fully load
+    if game.CoreGui:FindFirstChild("Erhub [v1.1.1]") or game.CoreGui:FindFirstChild("WindUI") then
+        local gui = game.CoreGui:FindFirstChild("Erhub [v1.1.1]") or game.CoreGui:FindFirstChild("WindUI")
+        if gui then
+             for _, v in pairs(gui:GetDescendants()) do
+                if v:IsA("UICorner") then
+                    v.CornerRadius = UDim.new(0, 4) -- Matched to main radius
+                end
+            end
+        end
+    end
+end)
